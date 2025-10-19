@@ -74,7 +74,6 @@ long long get_distance(){
     /* Convert ms to microseconds for distance formula */
     long long pulse_us = pulse_ms * 1000LL;
 
-    /* distance in cm = pulse_us / 58 */
     long long distance_cm = pulse_us * 0.01715;  // 0.0343/2.0 
     return distance_cm;
 }

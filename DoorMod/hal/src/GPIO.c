@@ -7,8 +7,6 @@
 #include "hal/timing.h"
 
 
-#define TRIG_PIN 27
-#define ECHO_PIN 17
 
 bool export_pin(int pin, const char* direction) {
     FILE *fp;
