@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/home/amytis/ensc351Proj/build/hal",
+  "command": "/usr/bin/aarch64-linux-gnu-gcc  -I/home/amytis/ensc351Proj/work/DoorMod/hal/hal/include -I/home/amytis/ensc351Proj/work/DoorMod/hal/include -g -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread -std=gnu11 -o CMakeFiles/hal.dir/src/GPIO.c.o -c /home/amytis/ensc351Proj/work/DoorMod/hal/src/GPIO.c",
+  "file": "/home/amytis/ensc351Proj/work/DoorMod/hal/src/GPIO.c"
+},
+{
+  "directory": "/home/amytis/ensc351Proj/build/hal",
+  "command": "/usr/bin/aarch64-linux-gnu-gcc  -I/home/amytis/ensc351Proj/work/DoorMod/hal/hal/include -I/home/amytis/ensc351Proj/work/DoorMod/hal/include -g -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread -std=gnu11 -o CMakeFiles/hal.dir/src/HC-SR04.c.o -c /home/amytis/ensc351Proj/work/DoorMod/hal/src/HC-SR04.c",
+  "file": "/home/amytis/ensc351Proj/work/DoorMod/hal/src/HC-SR04.c"
+},
+{
+  "directory": "/home/amytis/ensc351Proj/build/hal",
+  "command": "/usr/bin/aarch64-linux-gnu-gcc  -I/home/amytis/ensc351Proj/work/DoorMod/hal/hal/include -I/home/amytis/ensc351Proj/work/DoorMod/hal/include -g -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread -std=gnu11 -o CMakeFiles/hal.dir/src/timing.c.o -c /home/amytis/ensc351Proj/work/DoorMod/hal/src/timing.c",
+  "file": "/home/amytis/ensc351Proj/work/DoorMod/hal/src/timing.c"
+},
+{
+  "directory": "/home/amytis/ensc351Proj/build/app",
+  "command": "/usr/bin/aarch64-linux-gnu-gcc  -I/home/amytis/ensc351Proj/work/DoorMod/app/include -I/home/amytis/ensc351Proj/work/DoorMod/hal/include -g -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread -std=gnu11 -o CMakeFiles/doorMod.dir/doorMod.c.o -c /home/amytis/ensc351Proj/work/DoorMod/app/doorMod.c",
+  "file": "/home/amytis/ensc351Proj/work/DoorMod/app/doorMod.c"
+}
+]
