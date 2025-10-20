@@ -8,33 +8,53 @@
 #include "hal/GPIO.h"
 #include "hal/timing.h"
 
-/* Use macros from header for pins */
-
 bool init_hc_sr04(){
-    if(!export_pin(TRIG_PIN)) return false;
-    if(!export_pin(ECHO_PIN)) return false;
-    if(!set_pin_direction(TRIG_PIN, "out")) return false;
-    if(!set_pin_direction(ECHO_PIN, "in")) return false;
-    if(!write_pin_value(TRIG_PIN, 0)) return false;
-    else return true;
+    /* Initialize trigger pin as output */
+    if(!export_pin(TRIG_GPIOCHIP, TRIG_GPIO_LINE, "out")) {
+        perror("Failed to export trigger pin");
+        return false;
+    }
+    
+    /* Initialize echo pin as input */
+    if(!export_pin(ECHO_GPIOCHIP, ECHO_GPIO_LINE, "in")) {
+        perror("Failed to export echo pin");
+        return false;
+    }
+
+    /* Ensure trigger starts low */
+    if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 0)) {
+        perror("Failed to set initial trigger state");
+        return false;
+    }
+    return true;
 }
 
 
 long long get_distance(){
-
-    if(!write_pin_value(TRIG_PIN, 0)) return -1;
-    sleepForUs(2); /* ~2us nominal  */
-    if(!write_pin_value(TRIG_PIN, 1)) return -1;
-    sleepForUs(10); /* ~10us nominal */
-    if(!write_pin_value(TRIG_PIN, 0)) return -1;
+    /* Trigger pulse sequence */
+    if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 0)) {
+        perror("Failed to set trigger low");
+        return -1;
+    }
+    sleepForMs(1); /* At least 2us, we use 1ms since that's our timing resolution */
+    
+    if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 1)) {
+        perror("Failed to set trigger high");
+        return -1;
+    }
+    sleepForMs(1); /* At least 10us, we use 1ms */
+    
+    if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 0)) {
+        perror("Failed to set trigger low");
+        return -1;
+    }
 
     const long long timeout_ms = 60; /* 60 ms timeout */
-
     long long wait_start = getTimeInMs();
 
     /* Wait for rising edge */
-    while(true){
-        int v = read_pin_value(ECHO_PIN);
+    while(true) {
+        int v = read_pin_value(ECHO_GPIOCHIP, ECHO_GPIO_LINE);
         if(v < 0) {
             perror("Failed to read echo pin value");
             return -1;
@@ -44,16 +64,16 @@ long long get_distance(){
         }
         if((getTimeInMs() - wait_start) > timeout_ms) {
             perror("Timeout waiting for echo pin to go high");
-            return -1; /* timeout */
+            return -1;
         }
-        sleepForUs(10);
+        sleepForMs(1); /* Poll every 1ms */
     }
 
     long long t_start = getTimeInMs();
 
     /* Wait for falling edge */
-    while(true){
-        int v = read_pin_value(ECHO_PIN);
+    while(true) {
+        int v = read_pin_value(ECHO_GPIOCHIP, ECHO_GPIO_LINE);
         if(v < 0) {
             perror("Failed to read echo pin value");
             return -1;
@@ -63,17 +83,21 @@ long long get_distance(){
         }
         if((getTimeInMs() - t_start) > timeout_ms) {
             perror("Timeout waiting for echo pin to go low");
-            return -1; /* timeout */
+            return -1;
         }
-        sleepForUs(10);
+        sleepForMs(1); /* Poll every 1ms */
     }
 
     long long t_end = getTimeInMs();
     long long pulse_ms = t_end - t_start;
-
-    /* Convert ms to microseconds for distance formula */
-    long long pulse_us = pulse_ms * 1000LL;
-
-    long long distance_cm = pulse_us * 0.01715;  // 0.0343/2.0 
-    return distance_cm;
+    
+    /* Distance calculation:
+     * Sound speed = 343.2 m/s
+     * Distance = (pulse_time * sound_speed) / 2
+     * For centimeters: multiply by 100
+     * pulse_ms is in milliseconds, so multiply by 1000 for microseconds
+     * Final formula: distance_cm = pulse_us * (343.2 * 100 / 2 / 1000000)
+     * Simplified: distance_cm = pulse_us * 0.01716
+     */
+    return (long long)(pulse_ms * 1000LL * 0.01716);
 }

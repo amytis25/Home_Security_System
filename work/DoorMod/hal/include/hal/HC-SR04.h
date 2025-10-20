@@ -5,8 +5,10 @@
 #include <stdbool.h>
 #include <time.h>
 
-#define TRIG_PIN 17 //GPIO 17 , pin 11 (SoC pin A26)
-#define ECHO_PIN 27 //GPIO 27 , pin 13 (SoC pin N22)
+#define TRIG_GPIOCHIP 1  /* GPIO chip number for trigger pin */
+#define TRIG_GPIO_LINE 33 /* GPIO27 - from gpioinfo: gpiochip2 8 "GPIO27" */
+#define ECHO_GPIOCHIP 2  /* GPIO chip number for echo pin */
+#define ECHO_GPIO_LINE 8 /* GPIO17 - from gpioinfo: gpiochip2 9 "GPIO17" */
 
 
 bool init_hc_sr04();

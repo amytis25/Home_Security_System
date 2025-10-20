@@ -1,83 +1,112 @@
-#include <stdio.h> // fopen, fprintf, fclose, perror
-#include <stdlib.h>  // exit, EXIT_FAILURE, EXIT_SUCCESS
+#include <stdio.h>
 #include <stdbool.h>
-#include <time.h>
-#include <string.h> // strcmp
-#include <gpiod.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/gpio.h>
 #include "hal/GPIO.h"
-#include "hal/timing.h"
 
+/* Store file descriptors for opened lines, indexed by chip and line */
+#define MAX_CHIPS 4
+#define MAX_LINES_PER_CHIP 32
 
+static struct {
+    int line_fd;
+    bool is_output;
+    bool in_use;
+} gpio_fds[MAX_CHIPS][MAX_LINES_PER_CHIP] = {{{-1, false, false}}};
 
-bool export_pin(int pin) {
-    FILE *fp;
-
-    // Export pin
-    fp = fopen("/sys/class/gpio/export", "w");
-    if (fp == NULL) {
-        perror("Failed to open export for writing");
-        exit(EXIT_FAILURE);
+static bool gpio_line_init(int chip, int line, bool is_output) {
+    char chip_path[32];
+    snprintf(chip_path, sizeof(chip_path), "/dev/gpiochip%d", chip);
+    
+    int chip_fd = open(chip_path, O_RDONLY | O_CLOEXEC);
+    if (chip_fd < 0) {
+        perror("open gpiochip");
         return false;
-    } else {
-        fprintf(fp, "%d", pin);
-        fclose(fp);
-        return true;
     }
-}
-bool set_pin_direction(int pin, const char* direction) {
-    FILE *fp;
 
-    // Set pin direction
-    char path[50];
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", pin);
-    fp = fopen(path, "w");
-    if (fp == NULL) {
-        perror("Failed to open direction for writing");
-        exit(EXIT_FAILURE);
+    struct gpiohandle_request req;
+    memset(&req, 0, sizeof(req));
+    req.lineoffsets[0] = line;
+    req.lines = 1;
+    req.flags = is_output ? GPIOHANDLE_REQUEST_OUTPUT : GPIOHANDLE_REQUEST_INPUT;
+
+    if (!is_output) {
+#ifdef GPIOHANDLE_REQUEST_BIAS_PULL_UP
+        req.flags |= GPIOHANDLE_REQUEST_BIAS_PULL_UP;
+#endif
+    }
+
+    if (ioctl(chip_fd, GPIO_GET_LINEHANDLE_IOCTL, &req) < 0) {
+        perror("GPIO_GET_LINEHANDLE_IOCTL");
+        close(chip_fd);
         return false;
-    } else {
-        fprintf(fp, "%s", direction);
-        fclose(fp);
-        return true;
     }
-}
- 
-bool write_pin_value(int pin, int value) {
-    FILE *fp;
+    close(chip_fd);
 
-    // Write value to pin
-    char path[50];
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
-    fp = fopen(path, "w");
-    if (fp == NULL) {
-        perror("Failed to open value for writing");
-        exit(EXIT_FAILURE);
+    if (req.fd < 0) return false;
+
+    if (chip < MAX_CHIPS && line < MAX_LINES_PER_CHIP) {
+        /* Close existing if any */
+        if (gpio_fds[chip][line].line_fd >= 0) {
+            close(gpio_fds[chip][line].line_fd);
+        }
+        gpio_fds[chip][line].line_fd = req.fd;
+        gpio_fds[chip][line].is_output = is_output;
+        gpio_fds[chip][line].in_use = true;
+    }
+    return true;
+}
+
+bool export_pin(int chip, int line, const char* direction) {
+    if (!direction || chip < 0 || chip >= MAX_CHIPS || 
+        line < 0 || line >= MAX_LINES_PER_CHIP) return false;
+    return gpio_line_init(chip, line, strcmp(direction, "out") == 0);
+}
+
+bool set_pin_direction(int chip, int line, const char* direction) {
+    if (!direction || chip < 0 || chip >= MAX_CHIPS || 
+        line < 0 || line >= MAX_LINES_PER_CHIP) return false;
+    /* Must re-initialize with new direction */
+    return gpio_line_init(chip, line, strcmp(direction, "out") == 0);
+}
+
+bool write_pin_value(int chip, int line, int value) {
+    if (chip < 0 || chip >= MAX_CHIPS || 
+        line < 0 || line >= MAX_LINES_PER_CHIP) return false;
+    
+    if (!gpio_fds[chip][line].in_use || 
+        gpio_fds[chip][line].line_fd < 0 || 
+        !gpio_fds[chip][line].is_output) return false;
+
+    struct gpiohandle_data data;
+    memset(&data, 0, sizeof(data));
+    data.values[0] = value ? 1 : 0;
+
+    if (ioctl(gpio_fds[chip][line].line_fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+        perror("GPIOHANDLE_SET_LINE_VALUES_IOCTL");
         return false;
-    } else {
-        fprintf(fp, "%d", value);
-        fclose(fp);
-        return true;
     }
+    return true;
 }
 
-int read_pin_value(int pin) {
-    FILE *fp;
-    int value = -1;
+int read_pin_value(int chip, int line) {
+    if (chip < 0 || chip >= MAX_CHIPS || 
+        line < 0 || line >= MAX_LINES_PER_CHIP) return -1;
+    
+    if (!gpio_fds[chip][line].in_use || 
+        gpio_fds[chip][line].line_fd < 0) return -1;
 
-    // Read value from pin
-    char path[64];
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
-    fp = fopen(path, "r");
-    if (fp == NULL) {
+    struct gpiohandle_data data;
+    memset(&data, 0, sizeof(data));
+
+    if (ioctl(gpio_fds[chip][line].line_fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data) < 0) {
+        perror("GPIOHANDLE_GET_LINE_VALUES_IOCTL");
         return -1;
     }
-
-    if (fscanf(fp, "%d", &value) != 1) {
-        fclose(fp);
-        return -1;
-    }
-    fclose(fp);
-    return value;
+    return data.values[0];
 }
 
 
