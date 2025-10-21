@@ -1,8 +1,0 @@
-/home/amytis/ensc351Proj/build/CMakeFiles/edit_cache.dir
-/home/amytis/ensc351Proj/build/CMakeFiles/rebuild_cache.dir
-/home/amytis/ensc351Proj/build/hal/CMakeFiles/hal.dir
-/home/amytis/ensc351Proj/build/hal/CMakeFiles/edit_cache.dir
-/home/amytis/ensc351Proj/build/hal/CMakeFiles/rebuild_cache.dir
-/home/amytis/ensc351Proj/build/app/CMakeFiles/doorMod.dir
-/home/amytis/ensc351Proj/build/app/CMakeFiles/edit_cache.dir
-/home/amytis/ensc351Proj/build/app/CMakeFiles/rebuild_cache.dir
