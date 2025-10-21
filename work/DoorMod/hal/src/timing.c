@@ -31,3 +31,12 @@ void sleepForUs(long long delayInUs){
     struct timespec reqDelay = {seconds, nanoseconds};
     nanosleep(&reqDelay, (struct timespec *) NULL);
 }
+
+long long getTimeInUs(void){
+    struct timespec spec;
+    clock_gettime(CLOCK_MONOTONIC, &spec);
+    long long seconds = spec.tv_sec;
+    long long nanoSeconds = spec.tv_nsec;
+    long long microSeconds = seconds * 1000000LL + nanoSeconds / 1000LL;
+    return microSeconds;
+}

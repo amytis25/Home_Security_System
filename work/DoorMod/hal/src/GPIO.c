@@ -7,8 +7,24 @@
 #include <linux/gpio.h>
 #include "hal/GPIO.h"
 
+/* Debug output control - set to 0 to disable debug printfs */
+#define GPIO_DEBUG 1
+#define GPIO_DEBUG_VERBOSE 0  /* Set to 1 for detailed per-read debug messages */
+
+#if GPIO_DEBUG
+    #define DEBUG_PRINT(...) printf(__VA_ARGS__)
+#else
+    #define DEBUG_PRINT(...) do {} while(0)
+#endif
+
+#if GPIO_DEBUG_VERBOSE
+    #define DEBUG_VERBOSE(...) printf(__VA_ARGS__)
+#else
+    #define DEBUG_VERBOSE(...) do {} while(0)
+#endif
+
 /* Store file descriptors for opened lines, indexed by chip and line */
-#define MAX_CHIPS 2
+#define MAX_CHIPS 3
 #define MAX_LINES_PER_CHIP 70
 
 static struct {
@@ -21,12 +37,12 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
     char chip_path[32];
     snprintf(chip_path, sizeof(chip_path), "/dev/gpiochip%d", chip);
     
-    printf("Initializing GPIO: chip %d, line %d, %s\n", 
+    DEBUG_PRINT("Initializing GPIO: chip %d, line %d, %s\n", 
            chip, line, is_output ? "output" : "input");
     
     int chip_fd = open(chip_path, O_RDWR);
     if (chip_fd < 0) {
-        printf("Failed to open %s: ", chip_path);
+        DEBUG_PRINT("Failed to open %s: ", chip_path);
         perror(NULL);
         return false;
     }
@@ -37,8 +53,9 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
     req.num_lines = 1;
     req.config.flags = is_output ? GPIO_V2_LINE_FLAG_OUTPUT : GPIO_V2_LINE_FLAG_INPUT;
 
+    /* For input pins, use pull-down instead of pull-up for HC-SR04 */
     if (!is_output) {
-        req.config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_UP;
+        req.config.flags |= GPIO_V2_LINE_FLAG_BIAS_PULL_DOWN;
     }
 
     /* Try to get line info first to verify it exists */
@@ -47,36 +64,36 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
     linfo.offset = line;
     
     if (ioctl(chip_fd, GPIO_V2_GET_LINEINFO_IOCTL, &linfo) < 0) {
-        printf("Failed to get info for line %d: ", line);
+        DEBUG_PRINT("Failed to get info for line %d: ", line);
         perror(NULL);
         close(chip_fd);
         return false;
     }
     
-    printf("Found GPIO line: chip %d, line %d, name: '%s'\n", 
+    DEBUG_PRINT("Found GPIO line: chip %d, line %d, name: '%s'\n", 
            chip, line, linfo.name);
 
-    /* Request the GPIO line */
-    int fd = ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req);
-    if (fd < 0) {
-        printf("Failed to get line handle: ");
+    /* Request the GPIO line - ioctl fills in req.fd field */
+    DEBUG_PRINT("Requesting GPIO line...\n");
+    if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
+        DEBUG_PRINT("Failed to get line handle: ");
         perror(NULL);
         close(chip_fd);
         return false;
     }
-
-    /* Store the line file descriptor */
-    if (chip < MAX_CHIPS && line < MAX_LINES_PER_CHIP) {
-        if (gpio_fds[chip][line].line_fd >= 0) {
-            close(gpio_fds[chip][line].line_fd);
-        }
-        gpio_fds[chip][line].line_fd = fd;
-        gpio_fds[chip][line].is_output = is_output;
-        gpio_fds[chip][line].in_use = true;
+    
+    /* Close the chip fd, we only need the line fd now */
+    close(chip_fd);
+    
+    /* Check if we got a valid fd */
+    if (req.fd < 0) {
+        DEBUG_PRINT("Invalid line fd received: %d\n", req.fd);
+        return false;
     }
     
-    close(chip_fd);
+    DEBUG_PRINT("GPIO line request successful, fd = %d\n", req.fd);
 
+    /* Store the line file descriptor */
     if (chip < MAX_CHIPS && line < MAX_LINES_PER_CHIP) {
         /* Close existing if any */
         if (gpio_fds[chip][line].line_fd >= 0) {
@@ -85,7 +102,9 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
         gpio_fds[chip][line].line_fd = req.fd;
         gpio_fds[chip][line].is_output = is_output;
         gpio_fds[chip][line].in_use = true;
+        DEBUG_PRINT("Stored GPIO fd for chip %d, line %d\n", chip, line);
     }
+    
     return true;
 }
 
@@ -116,7 +135,7 @@ bool write_pin_value(int chip, int line, int value) {
     data.bits = value ? 1ULL : 0ULL;
 
     if (ioctl(gpio_fds[chip][line].line_fd, GPIO_V2_LINE_SET_VALUES_IOCTL, &data) < 0) {
-        printf("Failed to set value for chip %d, line %d: ", chip, line);
+        DEBUG_PRINT("Failed to set value for chip %d, line %d: ", chip, line);
         perror(NULL);
         return false;
     }
@@ -125,17 +144,32 @@ bool write_pin_value(int chip, int line, int value) {
 
 int read_pin_value(int chip, int line) {
     if (chip < 0 || chip >= MAX_CHIPS || 
-        line < 0 || line >= MAX_LINES_PER_CHIP) return -1;
+        line < 0 || line >= MAX_LINES_PER_CHIP) {
+        DEBUG_PRINT("read_pin_value: Invalid chip %d or line %d\n", chip, line);
+        return -1;
+    }
     
-    if (!gpio_fds[chip][line].in_use || 
-        gpio_fds[chip][line].line_fd < 0) return -1;
+    if (!gpio_fds[chip][line].in_use) {
+        DEBUG_PRINT("read_pin_value: GPIO chip %d, line %d not in use\n", chip, line);
+        return -1;
+    }
+    
+    if (gpio_fds[chip][line].line_fd < 0) {
+        DEBUG_PRINT("read_pin_value: Invalid fd %d for chip %d, line %d\n", 
+                   gpio_fds[chip][line].line_fd, chip, line);
+        return -1;
+    }
+
+    DEBUG_VERBOSE("read_pin_value: Reading from chip %d, line %d, fd = %d\n", 
+               chip, line, gpio_fds[chip][line].line_fd);
 
     struct gpio_v2_line_values data;
     memset(&data, 0, sizeof(data));
     data.mask = 1ULL;  /* We want to read only the first line */
 
     if (ioctl(gpio_fds[chip][line].line_fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &data) < 0) {
-        printf("Failed to read value from chip %d, line %d: ", chip, line);
+        DEBUG_PRINT("Failed to read value from chip %d, line %d, fd %d: ", 
+                   chip, line, gpio_fds[chip][line].line_fd);
         perror(NULL);
         return -1;
     }

@@ -8,35 +8,51 @@
 #include "hal/GPIO.h"
 #include "hal/timing.h"
 
+/* Debug output control - set to 0 to disable debug printfs */
+#define HC_SR04_DEBUG 1
+#define HC_SR04_DEBUG_VERBOSE 0  /* Set to 1 for detailed per-read debug messages */
+
+#if HC_SR04_DEBUG
+    #define DEBUG_PRINT(...) printf(__VA_ARGS__)
+#else
+    #define DEBUG_PRINT(...) do {} while(0)
+#endif
+
+#if HC_SR04_DEBUG_VERBOSE
+    #define DEBUG_VERBOSE(...) printf(__VA_ARGS__)
+#else
+    #define DEBUG_VERBOSE(...) do {} while(0)
+#endif
+
 bool init_hc_sr04(){
-    printf("Initializing HC-SR04 sensor:\n");
-    printf("Trigger pin: chip %d, line %d\n", TRIG_GPIOCHIP, TRIG_GPIO_LINE);
-    printf("Echo pin: chip %d, line %d\n", ECHO_GPIOCHIP, ECHO_GPIO_LINE);
+    DEBUG_PRINT("Initializing HC-SR04 sensor:\n");
+    DEBUG_PRINT("Trigger pin: chip %d, line %d\n", TRIG_GPIOCHIP, TRIG_GPIO_LINE);
+    DEBUG_PRINT("Echo pin: chip %d, line %d\n", ECHO_GPIOCHIP, ECHO_GPIO_LINE);
     
     /* Initialize trigger pin as output */
-    printf("Setting up trigger pin...\n");
+    DEBUG_PRINT("Setting up trigger pin...\n");
     if(!export_pin(TRIG_GPIOCHIP, TRIG_GPIO_LINE, "out")) {
-        printf("Failed to initialize trigger pin (chip %d, line %d)\n", 
+        DEBUG_PRINT("Failed to initialize trigger pin (chip %d, line %d)\n", 
                TRIG_GPIOCHIP, TRIG_GPIO_LINE);
         return false;
     }
     
     /* Initialize echo pin as input */
-    printf("Setting up echo pin...\n");
+    DEBUG_PRINT("Setting up echo pin...\n");
     if(!export_pin(ECHO_GPIOCHIP, ECHO_GPIO_LINE, "in")) {
-        printf("Failed to initialize echo pin (chip %d, line %d)\n",
+        DEBUG_PRINT("Failed to initialize echo pin (chip %d, line %d)\n",
                ECHO_GPIOCHIP, ECHO_GPIO_LINE);
         return false;
     }
 
     /* Ensure trigger starts low */
-    printf("Setting trigger initial state...\n");
+    DEBUG_PRINT("Setting trigger initial state...\n");
     if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 0)) {
-        printf("Failed to set trigger initial state\n");
+        DEBUG_PRINT("Failed to set trigger initial state\n");
         return false;
     }
     
-    printf("HC-SR04 initialization successful\n");
+    DEBUG_PRINT("HC-SR04 initialization successful\n");
     return true;
 }
 
@@ -47,23 +63,24 @@ long long get_distance(){
         perror("Failed to set trigger low");
         return -1;
     }
-    sleepForMs(1); /* At least 2us, we use 1ms since that's our timing resolution */
-    
+    sleepForUs(2); /* At least 2us */
+
     if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 1)) {
         perror("Failed to set trigger high");
         return -1;
     }
-    sleepForMs(1); /* At least 10us, we use 1ms */
-    
+    sleepForUs(10); /* At least 10us */
+
     if(!write_pin_value(TRIG_GPIOCHIP, TRIG_GPIO_LINE, 0)) {
         perror("Failed to set trigger low");
         return -1;
     }
 
-    const long long timeout_ms = 60; /* 60 ms timeout */
-    long long wait_start = getTimeInMs();
+    const long long timeout_us = 60000; /* 60 ms timeout */
+    long long wait_start = getTimeInUs();
 
     /* Wait for rising edge */
+    DEBUG_VERBOSE("Waiting for echo pin to go high...\n");
     while(true) {
         int v = read_pin_value(ECHO_GPIOCHIP, ECHO_GPIO_LINE);
         if(v < 0) {
@@ -71,44 +88,53 @@ long long get_distance(){
             return -1;
         }
         if(v == 1) {
+            DEBUG_VERBOSE("Echo pin went high!\n");
             break;
         }
-        if((getTimeInMs() - wait_start) > timeout_ms) {
-            perror("Timeout waiting for echo pin to go high");
+        if((getTimeInUs() - wait_start) > timeout_us) {
+            DEBUG_PRINT("Timeout waiting for echo pin to go high (pin value = %d)\n", v);
+            printf("Timeout waiting for echo pin to go high\n");
             return -1;
         }
-        sleepForMs(1); /* Poll every 1ms */
+        sleepForUs(50); /* Poll every 50us for better resolution */
     }
 
-    long long t_start = getTimeInMs();
+    long long t_start = getTimeInUs();
 
     /* Wait for falling edge */
+    DEBUG_VERBOSE("Waiting for echo pin to go low...\n");
+    int read_count = 0;
     while(true) {
         int v = read_pin_value(ECHO_GPIOCHIP, ECHO_GPIO_LINE);
         if(v < 0) {
             perror("Failed to read echo pin value");
             return -1;
         }
+        read_count++;
+        if(read_count <= 5 || read_count % 10 == 0) {
+            DEBUG_VERBOSE("Echo pin value = %d (read #%d)\n", v, read_count);
+        }
         if(v == 0) {
+            DEBUG_VERBOSE("Echo pin went low after %d reads!\n", read_count);
             break;
         }
-        if((getTimeInMs() - t_start) > timeout_ms) {
-            perror("Timeout waiting for echo pin to go low");
+        if((getTimeInUs() - t_start) > timeout_us) {
+            DEBUG_VERBOSE("Timeout waiting for echo pin to go low (pin value = %d, reads = %d)\n", v, read_count);
+            printf("Timeout waiting for echo pin to go low\n");
             return -1;
         }
-        sleepForMs(1); /* Poll every 1ms */
+        sleepForUs(50); /* Poll every 50us */
     }
 
-    long long t_end = getTimeInMs();
-    long long pulse_ms = t_end - t_start;
-    
-    /* Distance calculation:
-     * Sound speed = 343.2 m/s
-     * Distance = (pulse_time * sound_speed) / 2
-     * For centimeters: multiply by 100
-     * pulse_ms is in milliseconds, so multiply by 1000 for microseconds
-     * Final formula: distance_cm = pulse_us * (343.2 * 100 / 2 / 1000000)
-     * Simplified: distance_cm = pulse_us * 0.01716
-     */
-    return (long long)(pulse_ms * 1000LL * 0.01716);
+    long long t_end = getTimeInUs();
+    long long pulse_us = t_end - t_start;
+
+    /* Validate pulse width (typical range ~150us to ~30ms) */
+    if (pulse_us < 100 || pulse_us > 60000) {
+        DEBUG_PRINT("Discarding out-of-range pulse: %lld us\n", pulse_us);
+        return -1;
+    }
+
+    /* distance_cm = pulse_us * 0.01716 */
+    return (long long)(pulse_us * 0.01716);
 }

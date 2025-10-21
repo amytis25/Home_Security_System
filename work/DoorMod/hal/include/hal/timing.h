@@ -12,6 +12,9 @@ void sleepForMs(long long delayInMs);
 
 void sleepForUs(long long delayInUs);
 
+/* High-resolution monotonic timestamp in microseconds */
+long long getTimeInUs(void);
+
 
 
 #endif
