@@ -21,9 +21,13 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
     char chip_path[32];
     snprintf(chip_path, sizeof(chip_path), "/dev/gpiochip%d", chip);
     
+    printf("Initializing GPIO: chip %d, line %d, %s\n", 
+           chip, line, is_output ? "output" : "input");
+    
     int chip_fd = open(chip_path, O_RDONLY | O_CLOEXEC);
     if (chip_fd < 0) {
-        perror("open gpiochip");
+        printf("Failed to open %s: ", chip_path);
+        perror(NULL);
         return false;
     }
 
@@ -39,8 +43,24 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
 #endif
     }
 
+    /* Try to get line info first to verify it exists */
+    struct gpioline_info linfo;
+    memset(&linfo, 0, sizeof(linfo));
+    linfo.line_offset = line;
+    
+    if (ioctl(chip_fd, GPIO_GET_LINEINFO_IOCTL, &linfo) < 0) {
+        printf("Failed to get info for line %d: ", line);
+        perror(NULL);
+        close(chip_fd);
+        return false;
+    }
+    
+    printf("Found GPIO line: chip %d, line %d, name: '%s'\n", 
+           chip, line, linfo.name);
+
     if (ioctl(chip_fd, GPIO_GET_LINEHANDLE_IOCTL, &req) < 0) {
-        perror("GPIO_GET_LINEHANDLE_IOCTL");
+        printf("Failed to get line handle: ");
+        perror(NULL);
         close(chip_fd);
         return false;
     }
