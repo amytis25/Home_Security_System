@@ -56,17 +56,25 @@ static bool gpio_line_init(int chip, int line, bool is_output) {
     printf("Found GPIO line: chip %d, line %d, name: '%s'\n", 
            chip, line, linfo.name);
 
-    if (ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req) < 0) {
+    /* Request the GPIO line */
+    int fd = ioctl(chip_fd, GPIO_V2_GET_LINE_IOCTL, &req);
+    if (fd < 0) {
         printf("Failed to get line handle: ");
         perror(NULL);
         close(chip_fd);
         return false;
     }
 
-    if (req.fd < 0) {
-        close(chip_fd);
-        return false;
+    /* Store the line file descriptor */
+    if (chip < MAX_CHIPS && line < MAX_LINES_PER_CHIP) {
+        if (gpio_fds[chip][line].line_fd >= 0) {
+            close(gpio_fds[chip][line].line_fd);
+        }
+        gpio_fds[chip][line].line_fd = fd;
+        gpio_fds[chip][line].is_output = is_output;
+        gpio_fds[chip][line].in_use = true;
     }
+    
     close(chip_fd);
 
     if (chip < MAX_CHIPS && line < MAX_LINES_PER_CHIP) {
@@ -104,11 +112,12 @@ bool write_pin_value(int chip, int line, int value) {
 
     struct gpio_v2_line_values data;
     memset(&data, 0, sizeof(data));
-    data.mask = 1;
-    data.bits = value ? 1 : 0;
+    data.mask = 1ULL;  /* We want to affect only the first line */
+    data.bits = value ? 1ULL : 0ULL;
 
     if (ioctl(gpio_fds[chip][line].line_fd, GPIO_V2_LINE_SET_VALUES_IOCTL, &data) < 0) {
-        perror("GPIO_V2_LINE_SET_VALUES_IOCTL");
+        printf("Failed to set value for chip %d, line %d: ", chip, line);
+        perror(NULL);
         return false;
     }
     return true;
@@ -123,13 +132,14 @@ int read_pin_value(int chip, int line) {
 
     struct gpio_v2_line_values data;
     memset(&data, 0, sizeof(data));
-    data.mask = 1;
+    data.mask = 1ULL;  /* We want to read only the first line */
 
     if (ioctl(gpio_fds[chip][line].line_fd, GPIO_V2_LINE_GET_VALUES_IOCTL, &data) < 0) {
-        perror("GPIO_V2_LINE_GET_VALUES_IOCTL");
+        printf("Failed to read value from chip %d, line %d: ", chip, line);
+        perror(NULL);
         return -1;
     }
-    return (data.bits & 1) ? 1 : 0;
+    return (data.bits & 1ULL) ? 1 : 0;
 }
 
 
