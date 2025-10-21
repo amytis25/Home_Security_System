@@ -1,0 +1,13 @@
+1 - Description
+Our proposed project is a home security system designed to provide a simple and reliable solution for residential safety. The system will consist of individual door modules, each equipped with a stepper motor, an ultrasonic sensor, and a BeagleY-AI board. These modules will monitor the state of the doors and communicate with a central BeagleY-AI control unit, which interprets the data and forwards updates to the user’s personal device (e.g., phone, tablet, or laptop) via wifi connection. For the scope of this project and given hardware limitations, we will implement three door modules along with a single central control unit.
+2 - External Connections
+Each door module would be connected to a BeagleY-AI board with networking capabilities, allowing it to communicate with a central BeagleY-AI board that communicates with the user's mobile device via a wifi connection. 
+The central BeagleY-AI board will send updates to the user.
+Option 1: A Discord webhook where alerts are routed to the user through Discord
+Option 2 (if time allows): A mobile UI that includes a control hub (e.g., sends alerts as well as allowing the user to control the lock on the door)
+3 - Hardware Requirements
+4 BeagleY-AI Boards: 3 boards as control units for three modules, and one board as a central control unit.
+Ultrasonic Sensors: For door status detection (i.e., if the door is open or closed)
+Stepper Motors and Driver board: For remote control of the locks as well as lock status detection (i.e, if the door is locked/unlocked) 
+Example Doors/ Door frames: will make miniature doors (either 3D printed or made of wood) to demonstrate the functionality of the project
+(optional) Front door camera: for remote monitoring 

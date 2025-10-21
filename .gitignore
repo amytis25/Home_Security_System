@@ -28,7 +28,7 @@ build/
 *.filters
 
 # Project-specific build artifacts
-**/doorMod
+public/doorMod
 **/libhal.a
 **/*.d       # Dependency files
 **/*.c.o.d   # CMake dependency files
