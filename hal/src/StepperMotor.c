@@ -1,16 +1,6 @@
 #include "hal/StepperMotor.h"
 
-// Half-step sequence (8 steps) for maximum torque
-static const int halfstep_sequence[8][4] = {
-    {1, 0, 0, 0},  // Step 1
-    {1, 1, 0, 0},  // Step 2
-    {0, 1, 0, 0},  // Step 3
-    {0, 1, 1, 0},  // Step 4
-    {0, 0, 1, 0},  // Step 5
-    {0, 0, 1, 1},  // Step 6
-    {0, 0, 0, 1},  // Step 7
-    {1, 0, 0, 1}   // Step 8
-};
+// #define DEBUG_STEP_MOTOR
 
 // Global position tracking (in degrees)
 static int current_position = 0;
@@ -24,7 +14,7 @@ static bool set_motor_pins(const int* pattern) {
     return true;
 }
 
-void StepperMotor_Init(void) {
+bool StepperMotor_Init(void) {
     printf("Initializing Stepper Motor...\n");
     
     // Initialize all pins as outputs
@@ -33,20 +23,20 @@ void StepperMotor_Init(void) {
         !export_pin(IN3_GPIOCHIP, IN3_GPIO_LINE, "out") ||
         !export_pin(IN4_GPIOCHIP, IN4_GPIO_LINE, "out")) {
         printf("Failed to initialize motor pins\n");
-        return;
+        return false;
     }
 
     // Set initial position to 0
     current_position = 0;
     
     // Set all pins low initially
-    const int zero_pattern[4] = {0, 0, 0, 0};
     if (!set_motor_pins(zero_pattern)) {
         printf("Failed to set initial pin states\n");
-        return;
+        return false;
     }
     
     printf("Stepper Motor initialized successfully\n");
+    return true;
 }
 
 bool StepperMotor_Rotate(int target_degrees) {
@@ -62,7 +52,7 @@ bool StepperMotor_Rotate(int target_degrees) {
     
     printf("Rotating motor to %d degrees (%d steps)...\n", 
            target_degrees, total_steps);
-
+    
     // Perform rotation
     while (current_step < total_steps) {
         // Set the current step pattern
@@ -93,8 +83,7 @@ int StepperMotor_GetPosition(void) {
 }
 
 bool StepperMotor_ResetPosition(void) {
-    // Reset position to 0
-    const int zero_pattern[4] = {0, 0, 0, 0};
+    // Reset position to 0 degrees
     if (!set_motor_pins(zero_pattern)) {
         return false;
     }

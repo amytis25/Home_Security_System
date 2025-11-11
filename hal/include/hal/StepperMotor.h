@@ -9,6 +9,26 @@
 #include "hal/GPIO.h"
 #include "hal/timing.h"
 
+// Half-step sequence (8 steps) for maximum torque
+static const int halfstep_sequence[8][4] = {
+    {1, 0, 0, 0},  // Step 1
+    {1, 1, 0, 0},  // Step 2
+    {0, 1, 0, 0},  // Step 3
+    {0, 1, 1, 0},  // Step 4
+    {0, 0, 1, 0},  // Step 5
+    {0, 0, 1, 1},  // Step 6
+    {0, 0, 0, 1},  // Step 7
+    {1, 0, 0, 1}   // Step 8
+};
+// Full-step sequence (4 steps) for faster movement
+static const int fullstep_sequence[4][4] = {
+    {1, 0, 0, 1},  // Step 1: energize coils A and D
+    {1, 1, 0, 0},  // Step 2: energize coils A and B
+    {0, 1, 1, 0},  // Step 3: energize coils B and C
+    {0, 0, 1, 1}   // Step 4: energize coils C and D
+};
+// zero pattern to turn off all coils
+const int zero_pattern[4] = {0, 0, 0, 0};
 
 #define STEPS_PER_DEGREE (4096 / 360)
 // IN1 GPIO 04, IN2 GPIO 22, IN3 GPIO 5, IN4 GPIO 6
@@ -22,7 +42,7 @@
 #define IN4_GPIO_LINE 17 /* GPIO17 - from gpioinfo: gpiochip2 17 "GPIO17" */
 
 // Function declarations
-void StepperMotor_Init(void);
+bool StepperMotor_Init(void);
 bool StepperMotor_Rotate(int target_degrees);
 int StepperMotor_GetPosition(void);
 bool StepperMotor_ResetPosition(void);

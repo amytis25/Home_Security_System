@@ -28,12 +28,12 @@ build/
 *.filters
 
 # Project-specific build artifacts
-public/doorMod
 **/libhal.a
 **/*.d       # Dependency files
 **/*.c.o.d   # CMake dependency files
 **/compiler_depend.make
 **/compiler_depend.ts
+.vscode/tasks.json
 
-!*.c
-!*.h
+
+app/CMakeLists.txt
