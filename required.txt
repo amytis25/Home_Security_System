@@ -1,0 +1,5 @@
+discord
+openai
+requests
+aiohttp
+dotenv
