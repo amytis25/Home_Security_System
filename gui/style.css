@@ -1,0 +1,123 @@
+
+
+html,
+body {
+    /* margin settings*/
+    height: 100%;
+    margin: 1%;
+    padding: 0;
+    margin-top: 0%;
+
+    /* font settings*/
+    font-family: monospace;
+    text-decoration: none;
+
+    /* color settings*/
+    background-color: #d9f9e1;
+    color: #120a3f;
+}
+
+.column {
+    float: left;
+    width: 50%;
+    padding: 10px;
+}
+
+.minicolumn {
+    float: left;
+    width: fit-content;
+    padding: 10px;
+    padding-right: 0%;
+}
+
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+h1 {
+    font-size: 40px;
+    font-weight: bold;
+    color: #ce218f;
+
+    width: fit-content;
+    text-align: center;
+    align-content: center;
+    border-radius: 4px;
+    text-shadow: 2px 2px 2px #7e4070;
+
+}
+
+td {
+    border: 1px solid #dddddd;
+    text-align: center;
+    padding: 8px;
+    width: 25%;
+}
+th {
+    border: 1px solid #dddddd;
+    text-align: center;
+    padding: 8px;
+    width: 25%;
+    font-size: 25px;
+}
+table {
+    border-collapse: collapse;
+    margin: auto;
+    width: 80%;
+}
+
+button {
+    background-color: #f47ec9;
+    /* Green */
+    color: rgb(12, 57, 12);
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-color: #ce218f;
+    border-radius: 10px;
+}
+
+h2 {
+    color: #295f37;
+    /*text-shadow: #155827, 2px 2px;*/
+    /*background-color: #baf0bc;*/
+    width: fit-content;
+    /*border-radius: 10px;*/
+    align-content: center;
+    align-self: center;
+}
+
+label {
+    color: #14702d;
+    padding: 10px;
+}
+
+input {
+    background-color: #f9d9ee;
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: #ce218f;
+}
+
+select {
+    background-color: #f9d9ee;
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: #ce218f;
+}
+
+#travelTime {
+    margin: 10px;
+    padding: 5px;
+    color: #702765;
+    font-weight: bold;
+    font-size: 20px;
+    width: fit-content;
+    height: fit-content;
+    border-radius: 10px;
+}
