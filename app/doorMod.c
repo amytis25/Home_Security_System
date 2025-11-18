@@ -27,10 +27,12 @@ Door_t lockDoor (Door_t *door){
             printf("Door is open, cannot lock.\n");
             door->state = OPEN;
         }
-        else if (StepperMotor_Rotate(180) && get_distance() < 5) {
-            printf("Door locked successfully.\n");
-            // Update door state
-            door->state = LOCKED;
+        else if (get_distance() < 5) {
+            if (StepperMotor_Rotate(180)){
+                printf("Door locked successfully.\n");
+                // Update door state
+                door->state = LOCKED;
+            }
         } else {
             printf("Failed to lock the door.\n");
         }

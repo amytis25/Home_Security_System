@@ -18,6 +18,7 @@ typedef enum {
 typedef struct {
     DoorState_t state;
     int id;
+    char door1_name[50];
     // Additional door-related fields can be added here
 } Door_t;
 
