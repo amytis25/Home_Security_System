@@ -20,7 +20,13 @@ if(NOT WITH_TCP)
 	# Remove TCP related source files from the list if user disabled it.
 	list(FILTER MY_SOURCES EXCLUDE REGEX ".*/door_tcp_client.c$")
 endif()
-
+find_package(CURL REQUIRED)
+IF(CURL_FOUND)
+  INCLUDE_DIRECTORIES(${CURL_INCLUDE_DIR})
+  SET(requiredlibs ${requiredlibs} ${CURL_LIBRARIES} )
+ELSE(CURL_FOUND)
+  MESSAGE(FATAL_ERROR "Could not find the CURL library and development files.")
+ENDIF(CURL_FOUND)
 # Create the HAL static library
 add_library(hal STATIC ${MY_SOURCES})
 
