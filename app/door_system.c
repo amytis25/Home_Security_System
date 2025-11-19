@@ -76,7 +76,6 @@ int main(){
                 continue;
             } else if (control_number == 3) {
                 door1 = get_door_status(&door1);
-                printf("State: %d\n", door1.state);
             }
 
         } while (control_number != 4);

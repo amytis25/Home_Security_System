@@ -9,8 +9,8 @@
 #include "hal/timing.h"
 
 /* Debug output control - set to 0 to disable debug printfs */
-#define HC_SR04_DEBUG 1
-#define HC_SR04_DEBUG_VERBOSE 0  /* Set to 1 for detailed per-read debug messages */
+//#define HC_SR04_DEBUG 1
+//#define HC_SR04_DEBUG_VERBOSE 0  /* Set to 1 for detailed per-read debug messages */
 
 #if HC_SR04_DEBUG
     #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -121,7 +121,7 @@ long long get_distance(){
         if((getTimeInUs() - t_start) > timeout_us) {
             DEBUG_VERBOSE("Timeout waiting for echo pin to go low (pin value = %d, reads = %d)\n", v, read_count);
             printf("Timeout waiting for echo pin to go low\n");
-            return 10000;
+            return -1;
         }
         sleepForUs(50); /* Poll every 50us */
     }

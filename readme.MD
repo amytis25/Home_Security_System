@@ -25,10 +25,10 @@ The central BeagleY-AI board will send updates to the user. <br>
 ## BEAGLE-Y-AI PIN CONNECTIONS 
 
 - **STEPPER MOTOR**
-    - IN1: 
-    - IN2:
-    - IN3:
-    - IN4:
+    - IN1: GPIO 04
+    - IN2: GPIO 22
+    - IN3: GPIO 05
+    - IN4: GPIO 06
 
 - **ULTRASONIC SENSOR (HC-SR04)**:
     - trig: GPIO27 (gpiochip1, line 33)
