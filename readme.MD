@@ -87,13 +87,13 @@ Once board is fully booted and you have access to the shell, follow the commands
 To list the wireless devices attached, (you should see wlan0 listed) <br>
 `iwctl device list` <br>
 Scan WiFi using,<br>
-`iwctl station wlan0 scan`
+`iwctl station wlan0 scan`<br>
 Get networks using, <br>
 `iwctl station wlan0 get-networks` <br>
 Connect to your wifi network using,<br>
 `iwctl --passphrase "<wifi-pass>" station wlan0 connect "<wifi-name>"` <br>
 Check wlan0 status with, <br>
-`iwctl station wlan0 show`
+`iwctl station wlan0 show` <br>
 To list the networks with connected WiFi marked you can again use, <br>
 `iwctl station wlan0 get-networks` <br>
 Test connection with ping command, <br>
