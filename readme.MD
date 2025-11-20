@@ -84,20 +84,20 @@ Use one of these minimal options (do this from the repo root). Remove the old `b
 ## WLAN SETUP
 Once board is fully booted and you have access to the shell, follow the commands below to connect to any WiFi access point, <br>
 
-To list the wireless devices attached, (you should see wlan0 listed) <br>
-`iwctl device list` <br>
-Scan WiFi using,<br>
-`iwctl station wlan0 scan`<br>
-Get networks using, <br>
-`iwctl station wlan0 get-networks` <br>
-Connect to your wifi network using,<br>
-`iwctl --passphrase "<wifi-pass>" station wlan0 connect "<wifi-name>"` <br>
-Check wlan0 status with, <br>
-`iwctl station wlan0 show` <br>
-To list the networks with connected WiFi marked you can again use, <br>
-`iwctl station wlan0 get-networks` <br>
-Test connection with ping command, <br>
-`ping 8.8.8.8`
+- To list the wireless devices attached, (you should see wlan0 listed) <br>
+`iwctl device list` <br><br>
+- Scan WiFi using,<br>
+`iwctl station wlan0 scan`<br><br>
+- Get networks using, <br>
+`iwctl station wlan0 get-networks` <br><br>
+- Connect to your wifi network using,<br>
+`iwctl --passphrase "<wifi-pass>" station wlan0 connect "<wifi-name>"` <br><br>
+- Check wlan0 status with, <br>
+`iwctl station wlan0 show` <br><br>
+- To list the networks with connected WiFi marked you can again use, <br>
+`iwctl station wlan0 get-networks` <br><br>
+- Test connection with ping command, <br>
+`ping 8.8.8.8`<br>
 ## NETCAT INFORMATION
 Created two ports for UDP function:
 
