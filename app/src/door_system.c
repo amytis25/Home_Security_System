@@ -4,6 +4,7 @@
 #include <time.h>
 #include <string.h>
 #include "doorMod.h"
+#include "hal/hub_udp.h"
 #include <unistd.h>
 #include <errno.h>
 
@@ -18,6 +19,59 @@ int main(){
     } else {
         printf("System initialized successfully.\n");
     }
+
+    // ----------------------- UDP Communication Setup -----------------------
+        if (!hub_udp_init(12345)) {
+        fprintf(stderr, "Failed to start hub UDP listener\n");
+        return 1;
+    }
+
+    printf("Hub listening on UDP port 12345...\n");
+    // -------------------------EG door control loop ------------------------
+
+       // Example: simple CLI loop where user can ask for status.
+    while (1) {
+        char cmd[64];
+        printf("hub> ");
+        if (!fgets(cmd, sizeof(cmd), stdin)) break;
+
+        if (cmd[0] == 'q') break;
+
+        if (cmd[0] == 's') {
+            // status D1
+            char id[16];
+            if (sscanf(cmd, "s %15s", id) == 1) {
+                HubDoorStatus st;
+                if (hub_udp_get_status(id, &st)) {
+                    printf("Status %s: D0=%s,%s D1=%s,%s lastHB=%lldms\n",
+                           st.module_id,
+                           st.d0_open   ? "OPEN" : "CLOSED",
+                           st.d0_locked ? "LOCKED" : "UNLOCKED",
+                           st.d1_open   ? "OPEN" : "CLOSED",
+                           st.d1_locked ? "LOCKED" : "UNLOCKED",
+                           st.last_heartbeat_ms);
+                } else {
+                    printf("No status for %s yet.\n", id);
+                }
+            }
+        }
+
+        if (cmd[0] == 'h') {
+            HubEvent events[20];
+            int n = hub_udp_get_history(events, 20);
+            for (int i = 0; i < n; i++) {
+                printf("[%lld] %s: %s\n",
+                       events[i].timestamp_ms,
+                       events[i].module_id,
+                       events[i].line);
+            }
+        }
+    }
+
+    hub_udp_shutdown();
+    return 0;
+
+    // ----------------------- END OF EG Door Control Loop -----------------------
     
     int control_number;
     

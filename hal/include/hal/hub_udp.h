@@ -1,0 +1,44 @@
+// hub_udp.h
+#pragma once
+#include <stdbool.h>
+#include <stdint.h>
+
+#define HUB_MAX_DOORS    8
+#define HUB_MAX_HISTORY  256
+#define HUB_MODULE_ID_LEN 16
+#define HUB_LINE_LEN     256
+
+typedef struct {
+    char module_id[HUB_MODULE_ID_LEN];   // e.g., "D1"
+    bool known;
+
+    bool d0_open;
+    bool d0_locked;
+    bool d1_open;
+    bool d1_locked;
+
+    long long last_heartbeat_ms;
+    long long last_event_ms;
+
+    char last_heartbeat_line[HUB_LINE_LEN];
+} HubDoorStatus;
+
+typedef struct {
+    long long timestamp_ms;
+    char module_id[HUB_MODULE_ID_LEN];
+    char line[HUB_LINE_LEN];
+} HubEvent;
+
+// Start UDP listener thread on given port.
+bool hub_udp_init(uint16_t listen_port);
+
+// Stop thread and close socket.
+void hub_udp_shutdown(void);
+
+// Get status for a given door ID ("D1", "D2", "D3").
+// Returns true if that module is known and fills out *out.
+bool hub_udp_get_status(const char *module_id, HubDoorStatus *out);
+
+// Copy up to max_events most recent events into out[].
+// Returns number of events copied (<= max_events).
+int hub_udp_get_history(HubEvent *out, int max_events);
