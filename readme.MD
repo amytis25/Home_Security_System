@@ -36,7 +36,7 @@ The central BeagleY-AI board will send updates to the user. <br>
 
 - **LED CONNECTIONS(PWM)**:
     - Red - GPIO15
-    - Green - GPIO12 (?)
+    - Green - GPIO12
 
 ## RUNNING CMAKE
 - for host:
@@ -146,7 +146,7 @@ Compile door_system, doorMod
 run commands from executable folder (when all connected):
 scp door_system melissa@192.168.8.108:/home/
 scp doorMod amytis@192.168.8.213:/home/
-scp doorMod <SIMON_USER>@192.168.8.238:/home/
+scp doorMod simon@192.168.8.238:/home/
 scp doorMod <RICHARD_USER>@192.168.0.000:/home/
 
 Then SSH into each and run. or add to profile to auto run at startup
