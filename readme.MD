@@ -133,20 +133,27 @@ netcat -u -l -p 12345 global commands/feedback
 ## FRESH COMPILE
 CMAKE should make 2 executables:
 - door_system
-- doorMod
+- doorMod_cli
 
 door_system belongs on hub
-doorMod runs on the doors
+doorMod_cli runs on the doors
 
 ### Loading the Executables
 Connect to HUB wifi network
 
-Compile door_system, doorMod
+Compile door_system, doorMod_cli
 
 run commands from executable folder (when all connected):
 scp door_system melissa@192.168.8.108:/home/
-scp doorMod amytis@192.168.8.213:/home/
-scp doorMod simon@192.168.8.238:/home/
-scp doorMod <RICHARD_USER>@192.168.0.000:/home/
+scp doorMod_cli amytis@192.168.8.213:/home/
+scp doorMod_cli simon@192.168.8.238:/home/
+scp doorMod_cli <RICHARD_USER>@192.168.0.000:/home/
 
-Then SSH into each and run. or add to profile to auto run at startup
+add to PROFILE of each beagle:
+sudo ./doorMod_cli [MODULE_ID]
+
+MODULE_ID:
+amytis: "D1"
+simon: "D2"
+richard: "D3"
+

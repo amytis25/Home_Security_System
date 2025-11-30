@@ -1,7 +1,7 @@
 /*
  * doorMod_cli.c
  * Small CLI wrapper to run door module logic as a standalone executable.
- * Usage: ./doorMod_cli [MODULE_ID] [HUB_IP]
+ * Usage: ./doorMod_cli [MODULE_ID]
  */
 
 #include <stdio.h>
@@ -16,7 +16,7 @@
 int main(int argc, char *argv[])
 {
     const char *module_id = (argc > 1) ? argv[1] : "D1";
-    const char *hub_ip    = (argc > 2) ? argv[2] : "192.168.7.10";
+    const char *hub_ip    = "192.168.8.108"; // fixed hub IP
     bool door_udp_running = false;
 
     if (!initializeDoorSystem()) {
