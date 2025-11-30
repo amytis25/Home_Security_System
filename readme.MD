@@ -34,6 +34,10 @@ The central BeagleY-AI board will send updates to the user. <br>
     - trig: GPIO27 (gpiochip1, line 33)
     - echo: GPIO17 (gpiochip2, line 8)
 
+- **LED CONNECTIONS(PWM)**:
+    - Red - GPIO15
+    - Green - GPIO12 (?)
+
 ## RUNNING CMAKE
 - for host:
     ```shell
