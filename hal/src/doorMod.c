@@ -7,6 +7,7 @@
 #include "hal/timing.h"
 #include "hal/StepperMotor.h"
 #include "hal/led.h"
+#include "hal/led_worker.h"
 #include "include/doorMod.h"
 #include "hal/door_udp_client.h"
 
@@ -86,26 +87,26 @@ Door_t lockDoor (Door_t *door){
         if (dist >= 10) {
             printf("Door is open, cannot lock.\n");
             door->state = OPEN;
-            LED_lock_failure_sequence();
+            LED_enqueue_lock_failure();
         }
         else if (dist == -1) {
             printf("Ultrasonic sensor error, cannot lock door.\n");
             door->state = UNKNOWN;
-            LED_status_door_error();
+            LED_enqueue_status_door_error();
         }
         else if (dist < 10) {
             if (StepperMotor_Rotate(180)){
                 printf("Door locked successfully.\n");
                 // Update door state
                 door->state = LOCKED;
-                LED_lock_success_sequence();
+                LED_enqueue_lock_success();
             } else {
                 printf("Failed to lock the door.\n");
-                LED_lock_failure_sequence();
+                LED_enqueue_lock_failure();
             }
         } else {
             printf("Failed to lock the door.\n");
-            LED_lock_failure_sequence();
+            LED_enqueue_lock_failure();
         }
     }
     // Report new state to hub (if UDP initialized)
@@ -123,16 +124,16 @@ Door_t unlockDoor (Door_t *door){
         if (distance >= 5) {
             printf("Door is open, cannot unlock.\n");
             door->state = OPEN;
-            LED_unlock_failure_sequence();
+            LED_enqueue_unlock_failure();
         }
         else if (StepperMotor_Rotate(180)) {
             printf("Door unlocked successfully.\n");
             // Update door state
             door->state = UNLOCKED;
-            LED_unlock_success_sequence();
+            LED_enqueue_unlock_success();
         } else {
             printf("Failed to unlock the door.\n");
-            LED_unlock_failure_sequence();
+            LED_enqueue_unlock_failure();
         }
     }
     // Report new state to hub
@@ -154,7 +155,7 @@ Door_t get_door_status (Door_t *door){
     }
     else if (distance == -1) {
         printf("Error reading distance from ultrasonic sensor.\n");
-        LED_status_door_error();
+        LED_enqueue_status_door_error();
         // Report UNKNOWN (helper will skip sending) and return
         report_door_state_udp(door);
         return *door;

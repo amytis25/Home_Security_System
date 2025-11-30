@@ -3,12 +3,12 @@
 #include <curl/curl.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <string.h>
 
 #include "discord_alert.h"
 #include "hal/timing.h"
 
 // Discord Alert sending handling using libcurl
-static const char* webhook_URL = NULL;
 bool discordStart(void){
     curl_global_init(CURL_GLOBAL_DEFAULT);
     return true;

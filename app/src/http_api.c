@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "http_api.h"
-#include "doorMod.h"
+#include "hal/doorMod.h"
 #include "hal/hub_udp.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <strings.h>
 
 static int server_sock = -1;
 static volatile int server_running = 0;
@@ -19,15 +20,56 @@ static pthread_t server_thread;
 static char g_module_id[32] = {0};
 
 // very small helper to send an HTTP response
-static void send_response(int client, const char *body)
+static void send_response_status(int client, int status_code, const char *body)
 {
     char header[256];
     int len = strlen(body);
+    const char *status_text = "OK";
+    if (status_code == 401) status_text = "Unauthorized";
+    else if (status_code == 400) status_text = "Bad Request";
+    else if (status_code == 404) status_text = "Not Found";
     int hlen = snprintf(header, sizeof(header),
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n",
-                        len);
+                        "HTTP/1.1 %d %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n",
+                        status_code, status_text, len);
     send(client, header, hlen, 0);
     send(client, body, len, 0);
+}
+
+static void send_response(int client, const char *body)
+{
+    send_response_status(client, 200, body);
+}
+
+// Find a header value (case-insensitive) in the raw request buffer.
+static char *get_header_value_from_request(const char *req, const char *key)
+{
+    const char *p = strstr(req, "\r\n");
+    if (!p) return NULL;
+    p += 2; // skip request-line CRLF
+    while (p && *p && !(p[0] == '\r' && p[1] == '\n')) {
+        const char *line_end = strstr(p, "\r\n");
+        if (!line_end) break;
+        // find ':'
+        const char *col = memchr(p, ':', (size_t)(line_end - p));
+        if (col) {
+            size_t klen = (size_t)(col - p);
+            // trim spaces
+            while (klen > 0 && p[klen-1] == ' ') klen--;
+            if (klen == strlen(key) && strncasecmp(p, key, klen) == 0) {
+                // value starts after ':' possibly space
+                const char *val = col + 1;
+                while (*val == ' ') val++;
+                size_t vlen = (size_t)(line_end - val);
+                char *res = malloc(vlen + 1);
+                if (!res) return NULL;
+                memcpy(res, val, vlen);
+                res[vlen] = '\0';
+                return res;
+            }
+        }
+        p = line_end + 2;
+    }
+    return NULL;
 }
 
 // parse query param value for key from path like /api/status?module=D1
@@ -70,6 +112,20 @@ static void handle_client(int client)
         close(client); return;
     }
 
+    // Simple API token enforcement: if HTTP_API_TOKEN is set, require
+    // header `X-API-TOKEN: <token>` to match. If not set, allow access.
+    const char *expected_token = getenv("HTTP_API_TOKEN");
+    if (expected_token) {
+        char *got = get_header_value_from_request(buf, "X-API-TOKEN");
+        if (!got || strcmp(got, expected_token) != 0) {
+            send_response_status(client, 401, "{\"error\":\"unauthorized\"}");
+            free(got);
+            close(client);
+            return;
+        }
+        free(got);
+    }
+
     if (strcmp(method, "GET") == 0 && strncmp(path, "/api/status", 11) == 0) {
         char *mod = get_query_value(path, "module");
         if (!mod) {
@@ -83,7 +139,7 @@ static void handle_client(int client)
         if (hub_udp_get_status(mod, &st)) {
             char out[512];
             // Include friendly field names for UI: front_door_open and front_lock_locked
-            snprintf(out, sizeof(out), "{\"module\":\"%s\",\"d0_open\":%s,\"d0_locked\":%s,\"d1_open\":%s,\"d1_locked\":%s,\"front_door_open\":%s,\"front_lock_locked\":%s,\"lastHB\":%lld}",
+            snprintf(out, sizeof(out), "{\"module\":\"%s\",\"d0_open\":%s,\"d0_locked\":%s,\"d1_open\":%s,\"d1_locked\":%s,\"front_door_open\":%s,\"front_lock_locked\":%s,\"lastHB\":%lld,\"lastHBLine\":\"%s\"}",
                      st.module_id,
                      st.d0_open ? "true" : "false",
                      st.d0_locked ? "true" : "false",
@@ -91,7 +147,8 @@ static void handle_client(int client)
                      st.d1_locked ? "true" : "false",
                      st.d0_open ? "true" : "false",
                      st.d1_locked ? "true" : "false",
-                     st.last_heartbeat_ms);
+                     st.last_heartbeat_ms,
+                     st.last_heartbeat_line);
             send_response(client, out);
             free(mod);
             close(client);
@@ -170,9 +227,35 @@ static void handle_client(int client)
             close(client); return;
         }
 
-        // Otherwise: forward command to hub or other mechanism. For now
-        // we return accepted; the hub will deliver changes via heartbeat/events.
-        send_response(client, "{\"result\":\"accepted\"}");
+        // Otherwise: forward command to hub which will deliver to the door.
+        // First check that the hub has a route to the module.
+        HubDoorStatus st;
+        if (!hub_udp_get_status(mod, &st)) {
+            send_response(client, "{\"result\":\"failed\",\"reason\":\"unknown_module\"}");
+            free(mod); free(target); free(action);
+            close(client); return;
+        }
+        if (!st.has_last_addr) {
+            send_response(client, "{\"result\":\"failed\",\"reason\":\"no_route\"}");
+            free(mod); free(target); free(action);
+            close(client); return;
+        }
+
+        // Send command and wait for ACK (hub_udp_send_command blocks until ACK or timeout)
+        bool sent = hub_udp_send_command(mod, target ? target : "", action);
+        if (sent) {
+            // refresh status to include the latest FEEDBACK fields
+            if (!hub_udp_get_status(mod, &st)) {
+                send_response(client, "{\"result\":\"ok\",\"ack\":true}");
+            } else {
+                char out[512];
+                snprintf(out, sizeof(out), "{\"result\":\"ok\",\"ack\":true,\"last_feedback_target\":\"%s\",\"last_feedback_action\":\"%s\",\"last_feedback_ms\":%lld}",
+                         st.last_feedback_target, st.last_feedback_action, st.last_feedback_ms);
+                send_response(client, out);
+            }
+        } else {
+            send_response(client, "{\"result\":\"failed\",\"reason\":\"no_ack\"}");
+        }
         free(mod); free(target); free(action);
         close(client); return;
     }

@@ -13,6 +13,7 @@
 #include "hal/doorMod.h"
 #include "hal/door_udp_client.h"
 #include "hal/led.h"
+#include "hal/led_worker.h"
 
 int main(int argc, char *argv[])
 {
@@ -28,8 +29,8 @@ int main(int argc, char *argv[])
     // Try to start reporting (notifications + separate heartbeat port)
     if (!door_reporting_start(hub_ip, 12345, 12346, module_id, 1000)) {
         fprintf(stderr, "WARNING: reporting init failed; continuing without UDP reporting\n");
-        // Indicate network error via LED
-        LED_status_network_error();
+        // Indicate network error via LED (non-blocking)
+        LED_enqueue_status_network_error();
     } else {
         reporting_running = true;
     }

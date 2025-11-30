@@ -6,11 +6,32 @@
 #include "hal/doorMod.h"
 #include "hal/hub_udp.h"
 #include "hal/led.h"
+#include "hal/led_worker.h"
 #include "hal/door_udp_client.h"
+#include "hal/system_webhook.h"
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include "http_api.h"
 #include "discord_alert.h"
+
+// Top-level provider used by the Discord alert monitor. Defined here so
+// it is not nested inside main (avoids pedantic/nested-function warnings).
+static char *door_alert_provider(void *ctx) {
+    const char *module = (const char *)ctx;
+    if (!module) return NULL;
+    HubDoorStatus st;
+    if (hub_udp_get_status(module, &st)) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "%s: D0=%s,%s lastHB=%lldms",
+                 st.module_id,
+                 st.d0_open   ? "OPEN" : "CLOSED",
+                 st.d0_locked ? "LOCKED" : "UNLOCKED",
+                 st.last_heartbeat_ms);
+        return strdup(buf);
+    }
+    return NULL;
+}
 
 typedef struct {
     Door_t* door[4];
@@ -23,7 +44,7 @@ int main(int argc, char *argv[]){
 
     if (!initializeDoorSystem ()){
         printf("System initialization failed. Exiting.\n");
-        LED_status_door_error();
+        LED_enqueue_status_door_error();
         return EXIT_FAILURE;
     } else {
         printf("System initialized successfully.\n");
@@ -44,7 +65,6 @@ int main(int argc, char *argv[]){
         const char *webhook_url = (argc > 3) ? argv[3] : getenv("HUB_WEBHOOK_URL");
         bool webhook_running = false;
         char *discord_provider_ctx = NULL;
-        bool discord_monitor_running = false;
         if (webhook_url) {
             if (!hub_webhook_init(webhook_url)) {
                 fprintf(stderr, "WARNING: webhook init failed, continuing without webhook.\n");
@@ -56,21 +76,6 @@ int main(int argc, char *argv[]){
         // Start Discord alert monitor (application-owned provider).
         // The provider will be a function that queries the hub-aggregated status
         // via `hub_udp_get_status()` and returns a freshly-allocated message string.
-        static char *door_alert_provider(void *ctx) {
-            const char *module = (const char *)ctx;
-            if (!module) return NULL;
-            HubDoorStatus st;
-            if (hub_udp_get_status(module, &st)) {
-                char buf[512];
-                snprintf(buf, sizeof(buf), "%s: D0=%s,%s lastHB=%lldms",
-                         st.module_id,
-                         st.d0_open   ? "OPEN" : "CLOSED",
-                         st.d0_locked ? "LOCKED" : "UNLOCKED",
-                         st.last_heartbeat_ms);
-                return strdup(buf);
-            }
-            return NULL;
-        }
 
         if (webhook_url) {
             if (discordStart()) {
@@ -79,8 +84,6 @@ int main(int argc, char *argv[]){
                     if (!startDoorAlertMonitor(door_alert_provider, discord_provider_ctx, webhook_url)) {
                         free(discord_provider_ctx);
                         discord_provider_ctx = NULL;
-                    } else {
-                        discord_monitor_running = true;
                     }
                 }
             }
@@ -94,7 +97,7 @@ int main(int argc, char *argv[]){
         }
 
     // ----------------------- UDP Communication Setup -----------------------
-        if (!hub_udp_init2(12345, 12346)) {
+        if (!hub_udp_init(12345, 12346)) {
         fprintf(stderr, "Failed to start hub UDP listener(s)\n");
         return 1;
     }
@@ -124,7 +127,7 @@ int main(int argc, char *argv[]){
                            st.d1_locked ? "LOCKED" : "UNLOCKED",
                            st.last_heartbeat_ms);
                         // indicate hub command success briefly
-                        LED_hub_command_success();
+                            LED_enqueue_hub_command_success();
                         // also notify webhook (non-blocking)
                         char buf[256];
                         snprintf(buf, sizeof(buf), "Hub: status %s: D0=%s,%s D1=%s,%s",
@@ -135,7 +138,7 @@ int main(int argc, char *argv[]){
                                  st.d1_locked ? "LOCKED" : "UNLOCKED");
                         hub_webhook_send(buf);
                 } else {
-                        LED_hub_command_failure();
+                        LED_enqueue_hub_command_failure();
                     printf("No status for %s yet.\n", id);
                         hub_webhook_send("Hub: status request failed (no status available)");
                 }
@@ -152,10 +155,10 @@ int main(int argc, char *argv[]){
                        events[i].line);
             }
             if (n > 0) {
-                LED_hub_command_success();
+                LED_enqueue_hub_command_success();
                     hub_webhook_send("Hub: history retrieved");
             } else {
-                LED_hub_command_failure();
+                LED_enqueue_hub_command_failure();
                     hub_webhook_send("Hub: history empty");
             }
         }
