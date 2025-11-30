@@ -17,6 +17,8 @@ static int          g_sock        = -1;
 static pthread_t    g_thread_id;
 static int          g_listen_port = 0;
 static volatile int g_stopping    = 0;
+static char         g_webhook_url[512] = {0};  // Discord webhook URL
+
 
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -37,12 +39,19 @@ static long long now_ms(void)
 }
 
 // ---------- internal helpers ----------
+void hub_udp_set_webhook_url(const char *url)
+{
+    if (!url) return;
+    pthread_mutex_lock(&g_mutex);
+    snprintf(g_webhook_url, sizeof(g_webhook_url), "%s", url);
+    pthread_mutex_unlock(&g_mutex);
+}
 static void trigger_discord_alert(const char* module_id, const char* event_type, 
                                  const char* door, const char* state) {
     char alert_msg[256];
     snprintf(alert_msg, sizeof(alert_msg), 
              "[%s] %s %s is now %s", module_id, door, event_type, state);
-    sendDiscordAlert(webook_url, alert_msg);
+    sendDiscordAlert(g_webhook_url, alert_msg);
 }
 
 static HubDoorStatus *find_or_create_door(const char *module_id)
@@ -185,14 +194,18 @@ static void handle_line(char *line)
                 if (strcmp(what, "DOOR") == 0) {
                     if (strcmp(state, "OPEN") == 0) {
                         *p_open = true;
+                        trigger_discord_alert(mod, what, which, state);
                     } else if (strcmp(state, "CLOSED") == 0) {
                         *p_open = false;
+                        trigger_discord_alert(mod, what, which, state);
                     }
                 } else if (strcmp(what, "LOCK") == 0) {
                     if (strcmp(state, "LOCKED") == 0) {
                         *p_locked = true;
+                        trigger_discord_alert(mod, what, which, state);
                     } else if (strcmp(state, "UNLOCKED") == 0) {
                         *p_locked = false;
+                        trigger_discord_alert(mod, what, which, state);
                     }
                 }
             }

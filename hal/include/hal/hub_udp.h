@@ -29,6 +29,13 @@ typedef struct {
     char line[HUB_LINE_LEN];
 } HubEvent;
 
+/**
+ * Set the Discord webhook URL for alerts
+ * The webhook URL (can be NULL to disable alerts)
+ */
+void hub_udp_set_webhook_url(const char *url);
+
+
 // Start UDP listener thread on given port.
 bool hub_udp_init(uint16_t listen_port);
 
