@@ -3,9 +3,10 @@
 #include <stdbool.h>
 #include <time.h>
 #include <string.h>
-#include "doorMod.h"
+#include "hal/doorMod.h"
 #include "hal/hub_udp.h"
 #include "hal/led.h"
+#include "hal/door_udp_client.h"
 #include <unistd.h>
 #include <errno.h>
 
@@ -13,7 +14,11 @@ typedef struct {
     Door_t* door[4];
 } door_system_t;
 
-int main(){
+int main(int argc, char *argv[]){
+    const char *module_id = (argc > 1) ? argv[1] : "D1";
+    const char *hub_ip    = (argc > 2) ? argv[2] : "192.168.7.10";
+    bool door_udp_running = false;
+
     if (!initializeDoorSystem ()){
         printf("System initialization failed. Exiting.\n");
         LED_status_door_error();
@@ -23,6 +28,26 @@ int main(){
         // indicate ready: low-duty green steady
         LED_set_green_steady(true, 30);
     }
+
+    // Start door UDP client reporting (heartbeat + notifications)
+    if (!door_udp_init(hub_ip, 12345, module_id,
+                       DOOR_REPORT_NOTIFICATION | DOOR_REPORT_HEARTBEAT,
+                       1000)) {
+        fprintf(stderr, "WARNING: door_udp_init failed, running without door reporting.\n");
+    } else {
+        door_udp_running = true;
+    }
+    
+        // Start webhook reporter if provided via argv[3] or environment
+        const char *webhook_url = (argc > 3) ? argv[3] : getenv("HUB_WEBHOOK_URL");
+        bool webhook_running = false;
+        if (webhook_url) {
+            if (!hub_webhook_init(webhook_url)) {
+                fprintf(stderr, "WARNING: webhook init failed, continuing without webhook.\n");
+            } else {
+                webhook_running = true;
+            }
+        }
 
     // ----------------------- UDP Communication Setup -----------------------
         if (!hub_udp_init(12345)) {
@@ -56,9 +81,19 @@ int main(){
                            st.last_heartbeat_ms);
                         // indicate hub command success briefly
                         LED_hub_command_success();
+                        // also notify webhook (non-blocking)
+                        char buf[256];
+                        snprintf(buf, sizeof(buf), "Hub: status %s: D0=%s,%s D1=%s,%s",
+                                 st.module_id,
+                                 st.d0_open   ? "OPEN" : "CLOSED",
+                                 st.d0_locked ? "LOCKED" : "UNLOCKED",
+                                 st.d1_open   ? "OPEN" : "CLOSED",
+                                 st.d1_locked ? "LOCKED" : "UNLOCKED");
+                        hub_webhook_send(buf);
                 } else {
                         LED_hub_command_failure();
                     printf("No status for %s yet.\n", id);
+                        hub_webhook_send("Hub: status request failed (no status available)");
                 }
             }
         }
@@ -74,13 +109,23 @@ int main(){
             }
             if (n > 0) {
                 LED_hub_command_success();
+                    hub_webhook_send("Hub: history retrieved");
             } else {
                 LED_hub_command_failure();
+                    hub_webhook_send("Hub: history empty");
             }
         }
     }
 
     hub_udp_shutdown();
+
+    if (door_udp_running) {
+        door_udp_close();
+    }
+        if (webhook_running) {
+            hub_webhook_shutdown();
+        }
+
     return 0;
 
     // ----------------------- END OF EG Door Control Loop -----------------------
