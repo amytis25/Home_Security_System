@@ -2,7 +2,7 @@
  * doorMod_cli.c
  * Small CLI wrapper to run door module logic as a standalone executable.
  * Usage: ./doorMod_cli [MODULE_ID]
- */
+ */ 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +12,7 @@
 
 #include "hal/doorMod.h"
 #include "hal/door_udp_client.h"
+#include "hal/led.h"
 
 int main(int argc, char *argv[])
 {
@@ -25,13 +26,15 @@ int main(int argc, char *argv[])
     }
 
     // Try to start UDP reporting (best-effort)
-    if (!door_udp_init(hub_ip, 12345, module_id,
-                       DOOR_REPORT_NOTIFICATION | DOOR_REPORT_HEARTBEAT,
-                       1000)) {
-        fprintf(stderr, "WARNING: door_udp_init failed; continuing without UDP reporting\n");
-    } else {
-        door_udp_running = true;
-    }
+        if (!door_udp_init(hub_ip, 12345, module_id,
+                           DOOR_REPORT_NOTIFICATION | DOOR_REPORT_HEARTBEAT,
+                           1000)) {
+            fprintf(stderr, "WARNING: door_udp_init failed; continuing without UDP reporting\n");
+            // Indicate network error via LED
+            LED_status_network_error();
+        } else {
+            door_udp_running = true;
+        }
 
     Door_t door = { .state = UNKNOWN };
 
