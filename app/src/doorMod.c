@@ -8,7 +8,7 @@
 #include "hal/StepperMotor.h"
 #include "hal/led.h"
 #include "hal/led_worker.h"
-#include "hal/doorMod.h"
+#include "include/doorMod.h"
 #include "hal/door_udp_client.h"
 #include <pthread.h>
 #include <sys/socket.h>
