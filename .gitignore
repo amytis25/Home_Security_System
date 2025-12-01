@@ -7,6 +7,7 @@
 *.a     # Static libraries
 *.so    # Shared libraries
 *.dll   # Windows shared libraries
+*.json  # JSON files generated during build processes
 
 # Build directories
 build/
