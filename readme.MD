@@ -133,7 +133,7 @@ sudo apt install libcurl4-openssl-dev
 
 D1 (door 1): 192.168.8.213
 D2 (door 2): 192.168.8.238
-D3 (door 3): 192.168.0.000
+D3 (door 3): 192.168.8.233
 
 ### NETCAT COMMANDS
 netcat -u 192.168.8.108 12345 
@@ -146,7 +146,7 @@ netcat -u 192.168.8.213 12345
     - commands sent to D1
 netcat -u 192.168.8.238 12345 
     - commands sent to D2
-netcat -u 192.168.0.000 12345 
+netcat -u 192.168.8.233 12345 
     - commands sent to D3
 netcat -u -l -p 12345 
     - global commands/feedback stream
@@ -169,10 +169,12 @@ Connect to HUB wifi network
 Compile door_system, doorMod_cli
 
 run commands from executable folder (when all connected):
-scp door_system melissa@192.168.8.108:/home/
-scp doorMod_cli amytis@192.168.8.213:/home/
-scp doorMod_cli simon@192.168.8.238:/home/
-scp doorMod_cli <RICHARD_USER>@192.168.0.000:/home/
+scp door_system melissa@192.168.8.108:
+scp doorMod_cli amytis@192.168.8.213:
+scp doorMod_cli simon@192.168.8.238:
+scp doorMod_cli <RICHARD_USER>@192.168.8.233:
+
+
 
 add to PROFILE of each beagle:
 sudo ./doorMod_cli [MODULE_ID]
