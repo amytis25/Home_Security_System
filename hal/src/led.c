@@ -1,134 +1,177 @@
+//led.c
+//contains LED patterns for door module and hub using PWM
+#include "hal/led.h"
+#include "hal/PWM.h"
+#include "hal/led_worker.h"
+
+/* LED lock door
+// green on during lock mechanism (5hz?)
+// unsuccessful lock/unlock 5 red flashes @ 10Hz
+// green off
+// red flash at 2hz
+
+// successful lock/unlock 2 red flashes @ 7Hz
+// green on 
+*/
+
+/* LED unlock door 
+// green off
+// unsuccessful lock/unlock 5 red flashes @ 10Hz
+// red flash at 2hz
+
+// successful lock/unlock 2 red flashes @ 7Hz
+*/
+
+/* LED hub command
+// 2 red flashes @ 7Hz when success 
+
+// 5 red flashes @ 10Hz when unsuccessful
+*/
+
 // led.c
-// ENSC 351 Fall 2025
-// LED control functions for BeagleY-AI
+// Implementations for LED control using PWM
 
 #include "hal/led.h"
+#include "hal/PWM.h"
 #include "hal/timing.h"
-#include <stdio.h> // fopen, fprintf, fclose, perror
-#include <stdlib.h>  // exit, EXIT_FAILURE, EXIT_SUCCESS
+#include <stdio.h>
 #include <stdbool.h>
-#include <time.h>
 
-// from led guide 
-// Helper function to write to a file
-bool writeToFile(const char* filename, const char* value) {
-    FILE* file = fopen(filename, "w");
-    if (file == NULL) {
-        fprintf(stderr, "Error opening file '%s': ", filename);
-        perror(NULL);
-        return false;
-    }
-    
-    if (fprintf(file, "%s", value) < 0) {
-        fprintf(stderr, "Error writing to file '%s': ", filename);
-        perror(NULL);
-        fclose(file);
-        return false;
-    }
-    
-    fclose(file);
-    return true;
+// Internal helper: blink a pin `flashes` times at `freqHz` with `dutyPercent`.
+// This is a blocking helper (uses sleeps). Caller may run in a thread if non-blocking behavior is required.
+static void blink_pin_n(const char *pin, int flashes, int freqHz, int dutyPercent)
+{
+	if (pin == NULL || flashes <= 0 || freqHz <= 0) return;
+
+	// Enable PWM at requested frequency and duty
+	if (!PWM_setFrequency_pin(pin, freqHz, dutyPercent)) return;
+
+	// total time = flashes * period
+	int period_ms = 1000 / freqHz;
+	int total_ms = period_ms * flashes;
+	sleepForMs(total_ms);
+
+	// turn off
+	PWM_disable_pin(pin);
 }
 
-// Green LED Functions
-bool GreenLed_turnOn() {
-    // Set trigger to none and brightness to 1
-    if (!writeToFile(GREEN_LED_TRIGGER_FILE, "none")) {
-        return false;
-    }
-    return writeToFile(GREEN_LED_BRIGHTNESS_FILE, "1");
+// Initialization: export both PWM pins
+bool LED_init(void)
+{
+	bool ok = true;
+	if (!PWM_export_pin(LED_GREEN_PIN)) {
+		fprintf(stderr, "LED_init: failed to export %s\n", LED_GREEN_PIN);
+		ok = false;
+	}
+	if (!PWM_export_pin(LED_RED_PIN)) {
+		fprintf(stderr, "LED_init: failed to export %s\n", LED_RED_PIN);
+		ok = false;
+	}
+	if (ok) {
+		/* Start the LED worker so callers can enqueue non-blocking LED tasks. */
+		LED_worker_init();
+	}
+
+	return ok;
 }
 
-bool GreenLed_turnOff() {
-    // Set trigger to none and brightness to 0
-    if (!writeToFile(GREEN_LED_TRIGGER_FILE, "none")) {
-        return false;
-    }
-    return writeToFile(GREEN_LED_BRIGHTNESS_FILE, "0");
+// Shutdown helper: ensure the worker is stopped. Call at program exit.
+void LED_shutdown(void)
+{
+	LED_worker_shutdown();
 }
 
-bool GreenLed_flash(long long delayInMs, int numRepeat) {
-    // Set trigger to heartbeat for flashing effect
-    if (!writeToFile(GREEN_LED_TRIGGER_FILE, "heartbeat")) {
-        return false;
-    }
-
-    // Flash the LED the specified number of times
-    for (int i = 0; i < numRepeat; i++) {
-        // Turn on the LED
-        if (!GreenLed_turnOn()) {
-            return false;
-        }
-
-        // Sleep for the specified delay
-         sleepForMs(delayInMs);
-
-        // Turn off the LED
-        if (!GreenLed_turnOff()) {
-            return false;
-        }
-
-        // Sleep for the specified delay before the next flash
-        sleepForMs(delayInMs);
-    }
-
-    return true;
+// Low-level steady control
+void LED_set_green_steady(bool on, int dutyPercent)
+{
+	if (!on) {
+		PWM_disable_pin(LED_GREEN_PIN);
+		return;
+	}
+	// Use a high PWM frequency so the LED appears steady.
+	if (!PWM_setFrequency_pin(LED_GREEN_PIN, 1000, dutyPercent)) {
+		fprintf(stderr, "LED_set_green_steady: failed to set PWM for %s\n", LED_GREEN_PIN);
+	}
 }
 
-void GreenLed_cleanup() {
-    // Turn off the LED and reset trigger
-    writeToFile(GREEN_LED_TRIGGER_FILE, "none");
-    writeToFile(GREEN_LED_BRIGHTNESS_FILE, "0");
+void LED_set_red_steady(bool on, int dutyPercent)
+{
+	if (!on) {
+		PWM_disable_pin(LED_RED_PIN);
+		return;
+	}
+	if (!PWM_setFrequency_pin(LED_RED_PIN, 1000, dutyPercent)) {
+		fprintf(stderr, "LED_set_red_steady: failed to set PWM for %s\n", LED_RED_PIN);
+	}
 }
 
-// Red LED Functions
-bool RedLed_turnOn() {
-    // Set trigger to none and brightness to 1
-    if (!writeToFile(RED_LED_TRIGGER_FILE, "none")) {
-        return false;
-    }
-    return writeToFile(RED_LED_BRIGHTNESS_FILE, "1");
+// Blink helpers (blocking)
+void LED_blink_red_n(int flashes, int freqHz, int dutyPercent)
+{
+	blink_pin_n(LED_RED_PIN, flashes, freqHz, dutyPercent);
 }
 
-bool RedLed_turnOff() {
-    // Set trigger to none and brightness to 0
-    if (!writeToFile(RED_LED_TRIGGER_FILE, "none")) {
-        return false;
-    }
-    return writeToFile(RED_LED_BRIGHTNESS_FILE, "0");
+void LED_blink_green_n(int flashes, int freqHz, int dutyPercent)
+{
+	blink_pin_n(LED_GREEN_PIN, flashes, freqHz, dutyPercent);
 }
 
-bool RedLed_flash(long long delayInMs, int numRepeat) {
-    // Set trigger to timer for flashing effect
-    if (!writeToFile(RED_LED_TRIGGER_FILE, "timer")) {
-        return false;
-    }
-
-    // Flash the LED the specified number of times
-    for (int i = 0; i < numRepeat; i++) {
-        // Turn on the LED
-        if (!RedLed_turnOn()) {
-            return false;
-        }
-
-        // Sleep for the specified delay
-        sleepForMs(delayInMs);
-
-        // Turn off the LED
-        if (!RedLed_turnOff()) {
-            return false;
-        }
-
-        // Sleep for the specified delay before the next flash
-        sleepForMs(delayInMs);
-    }
-
-    return true;
+// High-level sequences
+void LED_lock_success_sequence(void)
+{
+	// 2 red flashes @ 7Hz then green on steady (lower duty)
+	LED_blink_red_n(2, 7, 90);
+	LED_set_green_steady(true, 30);
 }
 
-void RedLed_cleanup() {
-    // Turn off the LED and reset trigger
-    writeToFile(RED_LED_TRIGGER_FILE, "none");
-    writeToFile(RED_LED_BRIGHTNESS_FILE, "0");
+void LED_lock_failure_sequence(void)
+{
+	// 5 red flashes @ 10Hz, then red flash at 2Hz (continuous)
+	LED_blink_red_n(5, 10, 90);
+	// slow red flash at 2Hz
+	if (!PWM_setFrequency_pin(LED_RED_PIN, 2, 50)) {
+		PWM_disable_pin(LED_RED_PIN);
+	}
+	// ensure green is off
+	PWM_disable_pin(LED_GREEN_PIN);
 }
 
+void LED_unlock_success_sequence(void)
+{
+	// same as lock success
+	LED_lock_success_sequence();
+}
+
+void LED_unlock_failure_sequence(void)
+{
+	// same as lock failure
+	LED_lock_failure_sequence();
+}
+
+void LED_hub_command_success(void)
+{
+	// 2 red flashes @ 7Hz
+	LED_blink_red_n(2, 7, 90);
+}
+
+void LED_hub_command_failure(void)
+{
+	// 5 red flashes @ 10Hz
+	LED_blink_red_n(5, 10, 90);
+}
+
+void LED_status_door_error(void)
+{
+	// red flash at 2Hz (continuous)
+	if (!PWM_setFrequency_pin(LED_RED_PIN, 2, 50)) {
+		PWM_disable_pin(LED_RED_PIN);
+	}
+}
+
+void LED_status_network_error(void)
+{
+	// green flash at 2Hz (continuous)
+	if (!PWM_setFrequency_pin(LED_GREEN_PIN, 2, 50)) {
+		PWM_disable_pin(LED_GREEN_PIN);
+	}
+}

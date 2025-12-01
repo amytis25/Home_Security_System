@@ -1,39 +1,44 @@
-// led.c
-// ENSC 351 Fall 2025
-// LED control functions for BeagleY-AI
+// led.h
+// Functions to control the LEDs on door module and hub
 
-#ifndef LED_H
-#define LED_H
-#include <stdio.h> // fopen, fprintf, fclose, perror
-#include <stdlib.h>  // exit, EXIT_FAILURE, EXIT_SUCCESS
+#ifndef HAL_LED_H
+#define HAL_LED_H
+
 #include <stdbool.h>
-#include <time.h>
 
+// Default PWM pins used by the board. Change these if your wiring differs.
+#define LED_GREEN_PIN "GPIO15"
+#define LED_RED_PIN   "GPIO12"
 
-#define GREEN_LED_TRIGGER_FILE "/sys/class/leds/ACT/trigger"
-#define GREEN_LED_BRIGHTNESS_FILE "/sys/class/leds/ACT/brightness"
-#define RED_LED_TRIGGER_FILE "/sys/class/leds/PWR/trigger"
-#define RED_LED_BRIGHTNESS_FILE "/sys/class/leds/PWR/brightness"
+// Initialization: export PWM pins for LEDs. Returns true on success.
+bool LED_init(void);
 
-// write a string value to a file, return true if successful, false otherwise
-bool writeToFile(const char* filename, const char* value);
+// Shutdown: stop any worker and cleanup. Call at program exit when LED
+// hardware is no longer required.
+void LED_shutdown(void);
 
-// Green LED helper Functions
-bool GreenLed_turnOn();
-bool GreenLed_turnOff();
+// Low-level helpers
+// Set steady output on/off. `dutyPercent` is 0-100 (ignored if on==false).
+void LED_set_green_steady(bool on, int dutyPercent);
+void LED_set_red_steady(bool on, int dutyPercent);
 
-// Red LED helper Functions
-bool RedLed_turnOn();
-bool RedLed_turnOff();
+// Blink helpers (blocking): blink `flashes` times at `freqHz` with `dutyPercent`.
+void LED_blink_red_n(int flashes, int freqHz, int dutyPercent);
+void LED_blink_green_n(int flashes, int freqHz, int dutyPercent);
 
-// Flash the LED with specified delay (in ms) and number of repeats
-bool GreenLed_flash(long long delayInMs, int numRepeat);
-bool RedLed_flash(long long delayInMs, int numRepeat);
+// High-level sequences described in comments
+void LED_lock_success_sequence(void);
+void LED_lock_failure_sequence(void);
+void LED_unlock_success_sequence(void);
+void LED_unlock_failure_sequence(void);
 
-// Cleanup functions to turn off LEDs and reset triggers
-void RedLed_cleanup();
-void GreenLed_cleanup();
+void LED_hub_command_success(void);
+void LED_hub_command_failure(void);
 
+// Status indicators
+void LED_status_door_error(void);     // red flash at 2Hz
+void LED_status_network_error(void);  // green flash at 2Hz
 
-
-#endif
+#endif // HAL_LED_H
+//led.h
+//functions to control the LEDs on door module and hub

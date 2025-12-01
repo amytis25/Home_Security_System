@@ -34,6 +34,10 @@ The central BeagleY-AI board will send updates to the user. <br>
     - trig: GPIO27 (gpiochip1, line 33)
     - echo: GPIO17 (gpiochip2, line 8)
 
+- **LED CONNECTIONS(PWM)**:
+    - Red - GPIO15
+    - Green - GPIO12
+
 ## RUNNING CMAKE
 - for host:
     ```shell
@@ -82,6 +86,8 @@ Use one of these minimal options (do this from the repo root). Remove the old `b
         cmake --build build
         ```
 ## WLAN SETUP
+
+### SETUP
 source: https://docs.beagleboard.org/boards/beagley/ai/02-quick-start.html <br><br>
 Once board is fully booted and you have access to the shell, follow the commands below to connect to any WiFi access point, <br>
 
@@ -99,16 +105,81 @@ Once board is fully booted and you have access to the shell, follow the commands
 `iwctl station wlan0 get-networks` <br><br>
 - Test connection with ping command, <br>
 `ping 8.8.8.8`<br>
-## NETCAT INFORMATION
-Created two ports for UDP function:
 
- - Used port 12345 for "1.2 Listening to UDP" functions
- - Used port 12346 to complete "1.4 Terminal Output" Secion in Assignment Instructions and print to host.
-    - BYAI terminal outputs as per "1.6 Local output" instruction
-    - BYAI terminal and Host terminal print information simutaneosly
- - Can use both ports 12345 and 12346 in different terminal windows.
+### WLAN information
+The LAN for this project is called 351network. PW defender351
+Hub connected to LAN via ethernet. wlan0 of hub is connected to SFUNET-SECURE for discord message functionality
 
-NETCAT COMMANDS
-netcat -u 192.168.7.2 12345 
-nc -u -l -p 12346
+iwctl --passphrase "defender351" station wlan0 connect "351network"
+
+to disconnect:
+iwctl station wlan0 disconnect
+
+## CURL INFORMATION
+The libcurl or curl library is a c library written clientside to transfer data to the internet.
+We'll use it to send discord alerts via HTTPs requests to a discord webhook url.
+This can be implemented on just the host beagle or all of them send independant alerts w/ multiple webhooks.
+
+How to install on Debian VM terminal:
+sudo apt update
+sudo apt install libcurl4-openssl-dev
+
+
+## UDP/NETCAT INFORMATION
+### UDP ports used:
+ - Used port 12345 globally for command stream. command push and feedback
+ - Used port 12346 on hub for poll(heartbeat) recieving 
+
+### network-level identifiers 
+
+D1 (door 1): 192.168.8.213
+D2 (door 2): 192.168.8.238
+D3 (door 3): 192.168.0.000
+
+### NETCAT COMMANDS
+netcat -u 192.168.8.108 12345 
+- all command feedbacks to hub
+netcat -u 192.168.8.108 12346 
+netcat -u -l -p 12346 
+- polling (heartbeat) to hub
+
+netcat -u 192.168.8.213 12345 
+    - commands sent to D1
+netcat -u 192.168.8.238 12345 
+    - commands sent to D2
+netcat -u 192.168.0.000 12345 
+    - commands sent to D3
+netcat -u -l -p 12345 
+    - global commands/feedback stream
+
+### door state channels
+D0: sensor (open/closed)
+D1: lock   (locked/unlocked)
+
+## FRESH COMPILE
+CMAKE should make 2 executables:
+- door_system
+- doorMod_cli
+
+door_system belongs on hub
+doorMod_cli runs on the doors
+
+### Loading the Executables
+Connect to HUB wifi network
+
+Compile door_system, doorMod_cli
+
+run commands from executable folder (when all connected):
+scp door_system melissa@192.168.8.108:/home/
+scp doorMod_cli amytis@192.168.8.213:/home/
+scp doorMod_cli simon@192.168.8.238:/home/
+scp doorMod_cli <RICHARD_USER>@192.168.0.000:/home/
+
+add to PROFILE of each beagle:
+sudo ./doorMod_cli [MODULE_ID]
+
+MODULE_ID:
+amytis: "D1"
+simon: "D2"
+richard: "D3"
 
