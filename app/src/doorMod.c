@@ -44,7 +44,7 @@ static void report_door_state_udp(Door_t *door)
         return;
     }
     // Threshold: distance >= 10 means open (matches existing logic)
-    d0_open = (distance >= 10);
+    d0_open = (distance >= DOOR_CLOSED_THRESHOLD_CM);
 
     // Lock state from stepper position: 180 = locked
     d1_locked = (StepperMotor_GetPosition() == 180);
@@ -95,10 +95,10 @@ static void *heartbeat_worker(void *arg)
         
         // Map to UDP booleans:
         // D0 = door open/close (from ultrasonic), D1 = lock state (from stepper)
-        bool d0_open = (distance >= 10);      // Door open if distance >= 10cm
+        bool d0_open = (distance >= DOOR_CLOSED_THRESHOLD_CM);      // Door open if distance >= 10cm
         bool d0_locked = false;               // unused
         bool d1_open = false;                 // unused
-        bool d1_locked = (stepper_pos == 180); // Lock is locked at 180 degrees
+        bool d1_locked = (stepper_pos == STEPPER_LOCKED_POSITION); // Lock is locked at 180 degrees
         
         // Call HAL's update function to send heartbeat/notifications
         door_udp_update(d0_open, d0_locked, d1_open, d1_locked);
@@ -205,7 +205,7 @@ Door_t lockDoor (Door_t *door){
     if (StepperMotor_GetPosition() == 180){
         printf("Door is already locked.\n");
     } else {
-        if (dist >= 10) {
+        if (dist >= DOOR_CLOSED_THRESHOLD_CM){ {
             printf("Door is open, cannot lock.\n");
             door->state = OPEN;
             LED_enqueue_lock_failure();
@@ -215,7 +215,7 @@ Door_t lockDoor (Door_t *door){
             door->state = UNKNOWN;
             LED_enqueue_status_door_error();
         }
-        else if (dist < 10) {
+        else if (dist < DOOR_CLOSED_THRESHOLD_CM) {
             if (StepperMotor_Rotate(180)){
                 printf("Door locked successfully.\n");
                 // Update door state
@@ -251,9 +251,9 @@ Door_t unlockDoor (Door_t *door){
         bool last_was_locked = (__last_known_door.state == LOCKED);
         pthread_mutex_unlock(&__door_state_lock);
 
-        if (last_was_locked || StepperMotor_GetPosition() == 180) {
+        if (last_was_locked || StepperMotor_GetPosition() == STEPPER_LOCKED_POSITION) {
             // Attempt unlock without checking distance
-            if (StepperMotor_Rotate(180)) {
+            if (StepperMotor_Rotate(STEPPER_UNLOCKED_POSITION)) {
                 printf("Door unlocked successfully.\n");
                 door->state = UNLOCKED;
                 LED_enqueue_unlock_success();
@@ -262,7 +262,7 @@ Door_t unlockDoor (Door_t *door){
                 LED_enqueue_unlock_failure();
             }
         }
-        else if (distance >= 5) {
+        else if (distance >= DOOR_CLOSED_THRESHOLD_CM) {
             printf("Door is open, cannot unlock.\n");
             door->state = OPEN;
             LED_enqueue_unlock_failure();
@@ -293,11 +293,11 @@ Door_t unlockDoor (Door_t *door){
 // Get the current status of the door
 Door_t get_door_status (Door_t *door){
     long long distance = get_distance();
-    if (StepperMotor_GetPosition() == 180){
+    if (StepperMotor_GetPosition() == STEPPER_LOCKED_POSITION){
         door->state = LOCKED;
         printf("Door is LOCKED.\n");
     } 
-    else if (distance < 10 && distance != -1) {
+    else if (distance < DOOR_CLOSED_THRESHOLD_CM && distance != -1) {
         door->state = UNLOCKED;
         printf("Door is CLOSED and UNLOCKED.\n");
     }
@@ -308,7 +308,7 @@ Door_t get_door_status (Door_t *door){
         report_door_state_udp(door);
         return *door;
     }
-    else if (distance >= 10) {
+    else if (distance >= DOOR_CLOSED_THRESHOLD_CM) {
         door->state = OPEN;
         printf("Door is OPEN.\n");
     } 
