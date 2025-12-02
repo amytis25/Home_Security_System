@@ -405,7 +405,11 @@ bool hub_udp_init(uint16_t listen_port1, uint16_t listen_port2)
         fprintf(stderr, "hub_udp_init: already initialized\n");
         return false;
     }
-
+    discordStart();
+    if (!discordStart()) {
+        fprintf(stderr, "discordStart() failed\n");
+        return NULL;
+    }
     g_listen_port = listen_port1;
 
     int s1 = socket(AF_INET, SOCK_DGRAM, 0);
@@ -500,6 +504,7 @@ void hub_udp_shutdown(void)
     if (g_sock >= 0) { close(g_sock); g_sock = -1; }
     if (g_sock2 >= 0) { close(g_sock2); g_sock2 = -1; }
     /* LED worker shutdown is handled by LED_shutdown() where appropriate. */
+    discordCleanup();
 }
 
 bool hub_udp_get_status(const char *module_id, HubDoorStatus *out)

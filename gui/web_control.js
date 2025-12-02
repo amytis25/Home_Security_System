@@ -1,12 +1,36 @@
 // gui/web_control.js
 // Web-based control panel for Central Door System
-// Communicates with server.js to get door status and send commands from UDP
+// Communicates with server.js via WebSocket
 
-import * as server from './server.js';
+const socket = io();
+
+async function getDoorInfo(moduleId) {
+    return new Promise((resolve) => {
+        socket.emit('get-door-info', moduleId, (info) => {
+            resolve(info);
+        });
+    });
+}
+
+async function lockDoor(moduleId) {
+    return new Promise((resolve) => {
+        socket.emit('lock-door', moduleId, (result) => {
+            resolve(result);
+        });
+    });
+}
+
+async function unlockDoor(moduleId) {
+    return new Promise((resolve) => {
+        socket.emit('unlock-door', moduleId, (result) => {
+            resolve(result);
+        });
+    });
+}
 
 async function refreshStatus() {
     for (let id = 1; id <= 3; id++) {
-        const info = await server.getDoorInfo(id);
+        const info = await getDoorInfo(id);
         const span = document.getElementById(`door${id}_status`);
         const btn = document.getElementById(`toggle_door${id}`);
         const div = document.getElementById(`door${id}`);
@@ -46,7 +70,7 @@ async function toggleDoor(id) {
     const msg = document.getElementById(`door${id}_message`);
     if (!btn) return;
 
-    const info = await server.getDoorInfo(id);
+    const info = await getDoorInfo(id);
     if (!info) {
         msg && (msg.textContent = 'No connection to door');
         return;
@@ -58,9 +82,9 @@ async function toggleDoor(id) {
             return;
         }
         if (info.frontLockLocked) {
-            await server.unlockDoor(id);
+            await unlockDoor(id);
         } else {
-            await server.lockDoor(id);
+            await lockDoor(id);
         }
     } catch (e) {
         msg && (msg.textContent = `Error: ${e.message}`);
@@ -69,8 +93,6 @@ async function toggleDoor(id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    server.initializeDoorSystem();
-
     // Wire up buttons for doors 1..3
     for (let id = 1; id <= 3; id++) {
         const btn = document.getElementById(`toggle_door${id}`);

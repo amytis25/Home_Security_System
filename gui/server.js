@@ -1,4 +1,41 @@
-// gui/server.js — client for local door_system HTTP API
+"use strict";
+/*
+ * WebSocket server for door control system
+ * Communicates with door-system API to get status and send commands
+ */
+
+const fs = require('fs');
+const socketio = require('socket.io');
+const path = require('path');
+const mime = require('mime');
+const http = require('http');
+
+const PORT = 8080;
+
+// HTTP server for serving static files
+const httpServer = http.createServer(function(req, res) {
+    let filePath = (req.url === '/') ? 'index.html' : req.url;
+    const absPath = path.join(__dirname, filePath);
+    
+    fs.readFile(absPath, function(err, data) {
+        if (err) {
+            res.writeHead(404, {'Content-Type': 'text/plain'});
+            res.end('Error 404: resource not found.');
+            return;
+        }
+        res.writeHead(200, {'Content-Type': mime.getType(path.basename(absPath)) || 'application/octet-stream'});
+        res.end(data);
+    });
+});
+
+// WebSocket server
+const io = socketio(httpServer, {
+    cors: { origin: "*" }
+});
+
+httpServer.listen(PORT, function() {
+    console.log('Server listening on port ' + PORT);
+});
 
 const DoorState = {
     CLOSED: 'CLOSED',
@@ -27,34 +64,18 @@ function normalizeStatusJson(json) {
     return DoorState.DISCONNECTED;
 }
 
-export async function initializeDoorSystem() {
-    // noop for now
-}
-
 function formatModuleId(moduleId) {
     if (moduleId === null || moduleId === undefined) return '';
     const s = String(moduleId);
     if (/^[Dd]\d+$/.test(s)) return s.toUpperCase();
     if (/^\d+$/.test(s)) return `D${s}`;
-    return s; // leave as-is
+    return s;
 }
 
-export async function getDoorStatus(moduleId) {
+async function getDoorInfo(moduleId) {
     const mod = formatModuleId(moduleId);
     try {
-        const res = await fetch(`/api/status?module=${encodeURIComponent(mod)}`);
-        if (!res.ok) return DoorState.DISCONNECTED;
-        const j = await res.json();
-        return normalizeStatusJson(j);
-    } catch (e) {
-        return DoorState.DISCONNECTED;
-    }
-}
-
-export async function getDoorInfo(moduleId) {
-    const mod = formatModuleId(moduleId);
-    try {
-        const res = await fetch(`/api/status?module=${encodeURIComponent(mod)}`);
+        const res = await fetch(`http://localhost:9000/api/status?module=${encodeURIComponent(mod)}`);
         if (!res.ok) return null;
         const j = await res.json();
         return {
@@ -64,6 +85,7 @@ export async function getDoorInfo(moduleId) {
             frontLockLocked: !!j.front_lock_locked || !!j.d1_locked
         };
     } catch (e) {
+        console.error('Error fetching door info:', e);
         return null;
     }
 }
@@ -71,21 +93,50 @@ export async function getDoorInfo(moduleId) {
 async function sendCommand(moduleId, target, action) {
     const mod = formatModuleId(moduleId);
     const body = `module=${encodeURIComponent(mod)}&target=${encodeURIComponent(target||'')}&action=${encodeURIComponent(action)}`;
-    const res = await fetch(`/api/command`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
+    try {
+        const res = await fetch(`http://localhost:9000/api/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+    } catch (e) {
+        console.error('Error sending command:', e);
+        throw e;
+    }
+}
+
+io.on('connection', function(socket) {
+    console.log('WebSocket client connected:', socket.id);
+
+    socket.on('get-door-info', async (moduleId, callback) => {
+        console.log('get-door-info for module:', moduleId);
+        const info = await getDoorInfo(moduleId);
+        if (callback) callback(info);
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-}
 
-export async function lockDoor(moduleId) {
-    return sendCommand(moduleId, 'D0', 'LOCK');
-}
+    socket.on('lock-door', async (moduleId, callback) => {
+        console.log('lock-door for module:', moduleId);
+        try {
+            const result = await sendCommand(moduleId, 'D0', 'LOCK');
+            if (callback) callback({ success: true, data: result });
+        } catch (e) {
+            if (callback) callback({ success: false, error: e.message });
+        }
+    });
 
-export async function unlockDoor(moduleId) {
-    return sendCommand(moduleId, 'D0', 'UNLOCK');
-}
+    socket.on('unlock-door', async (moduleId, callback) => {
+        console.log('unlock-door for module:', moduleId);
+        try {
+            const result = await sendCommand(moduleId, 'D0', 'UNLOCK');
+            if (callback) callback({ success: true, data: result });
+        } catch (e) {
+            if (callback) callback({ success: false, error: e.message });
+        }
+    });
 
-export { DoorState };
+    socket.on('disconnect', function() {
+        console.log('WebSocket client disconnected:', socket.id);
+    });
+});
