@@ -19,6 +19,8 @@ extern bool app_udp_handler_init(void);
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+
+#define DEBUG
 // forward declaration for helper used below
 static void update_last_known_state(const Door_t *door);
 
@@ -257,7 +259,14 @@ Door_t unlockDoor (Door_t *door){
             printf("Door unlocked successfully.\n");
             // Update door state
             door->state = UNLOCKED;
+            #ifdef DEBUG
+            printf("LED activating.\n");
+            #endif
             LED_enqueue_unlock_success();
+            #ifdef DEBUG
+            printf("LED success.\n");
+            #endif
+
         } else {
             printf("Failed to unlock the door.\n");
             LED_enqueue_unlock_failure();
