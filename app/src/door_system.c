@@ -39,9 +39,11 @@ typedef struct {
 
 int main(int argc, char *argv[]){
     const char *module_id = (argc > 1) ? argv[1] : "D1";
-    const char *hub_ip    = (argc > 2) ? argv[2] : "192.168.7.10";
+    //const char *hub_ip    = (argc > 2) ? argv[2] : "192.168.8.108";
     bool door_udp_running = false;
 
+    // Removing door logic from system
+    /*
     if (!initializeDoorSystem ()){
         printf("System initialization failed. Exiting.\n");
         LED_enqueue_status_door_error();
@@ -60,6 +62,8 @@ int main(int argc, char *argv[]){
     } else {
         door_udp_running = true;
     }
+        */
+
     // Initialize Discord
     if (!discordStart()) {
         fprintf(stderr, "Failed to initialize Discord\n");
