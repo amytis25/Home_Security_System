@@ -54,9 +54,12 @@ function startUdpSocket() {
                 const target = parts[3];
                 const action = parts.slice(4).join(' ');
 
+                console.log(`[FEEDBACK] cmdid=${cmdid}, target=${target}, action="${action}", pending.size=${pending.size}`);
+
                 // If a pending request exists, send the FEEDBACK only to that socket
                 const p = pending.get(cmdid);
                 if (p) {
+                    console.log(`[FEEDBACK] Found pending entry for cmdid ${cmdid}, emitting to socket`);
                     try {
                         p.socket.emit('command-feedback', { module: moduleId, cmdid, target, action, raw: msg });
                     } catch (e) {
@@ -65,6 +68,8 @@ function startUdpSocket() {
                     clearTimeout(p.timer);
                     pending.delete(cmdid);
                     return; // consumed
+                } else {
+                    console.log(`[FEEDBACK] NO pending entry for cmdid ${cmdid}. Pending keys: [${Array.from(pending.keys()).join(', ')}]`);
                 }
             }
 
@@ -119,8 +124,10 @@ function sendCommand(moduleId, target, action, socket) {
 
         // Register pending feedback if caller provided a socket
         if (socket) {
+            console.log(`[PENDING] Registering cmdid=${cmdid} for ${moduleId}`);
             const timer = setTimeout(() => {
                 // timed out waiting for FEEDBACK
+                console.log(`[PENDING] Timeout for cmdid ${cmdid}`);
                 pending.delete(cmdid);
                 try { socket.emit('command-error', { module: moduleId, cmdid, error: 'No FEEDBACK from hub' }); } catch(e){}
             }, PENDING_TIMEOUT_MS);
