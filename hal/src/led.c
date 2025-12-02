@@ -106,11 +106,11 @@ void LED_blink_red_n(int freqHz, int dutyPercent)
 	long long startTime = getTimeInMs();
 	if (!PWM_setFrequency(RED_LED, freqHz, dutyPercent)) {
 		fprintf(stderr, "LED_blink_red_n: failed to set PWM for %s\n", LED_RED_PIN);
-		return;
 	}
 	if (startTime - getTimeInMs()>100){
 		PWM_disable(RED_LED);
 	}
+	return;
 }
 
 void LED_blink_green_n(int freqHz, int dutyPercent)
@@ -118,11 +118,11 @@ void LED_blink_green_n(int freqHz, int dutyPercent)
 	long long startTime = getTimeInMs();
 	if (!PWM_setFrequency(GREEN_LED, freqHz, dutyPercent)) {
 		fprintf(stderr, "LED_blink_green_n: failed to set PWM for %s\n", LED_GREEN_PIN);
-		return;
 	}
 	if (startTime - getTimeInMs()>100){
 		PWM_disable(RED_LED);
 	}
+	return;
 }
 
 // High-level sequences
