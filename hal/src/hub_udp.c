@@ -48,9 +48,15 @@ static long long now_ms(void)
 void hub_udp_set_webhook_url(const char *url)
 {
     if (!url) return;
-    url = g_webhook_url;
     pthread_mutex_lock(&g_mutex);
-    snprintf(g_webhook_url, sizeof(g_webhook_url), "%s", url);
+    /* Copy safely even if `url` points into `g_webhook_url` (avoid
+     * snprintf warnings about overlapping source/destination under
+     * -Werror=restrict). Use memmove which supports overlapping ranges
+     * and ensure NUL-termination and truncation. */
+    size_t len = strlen(url);
+    if (len >= sizeof(g_webhook_url)) len = sizeof(g_webhook_url) - 1;
+    memmove(g_webhook_url, url, len);
+    g_webhook_url[len] = '\0';
     pthread_mutex_unlock(&g_mutex);
 }
 static void trigger_discord_alert(const char* module_id, const char* event_type, 
