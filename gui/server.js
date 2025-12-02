@@ -40,10 +40,10 @@ const io = socketio(httpServer, {
     cors: { origin: "*" }
 });
 
-httpServer.listen(PORT, '0.0.0.0', function() {
-    console.log('Server listening on 0.0.0.0:' + PORT);
-    console.log('Access from this device: http://localhost:' + PORT + '/UI.html');
-    console.log('Access from other devices: http://<your-device-ip>:' + PORT + '/UI.html');
+httpServer.listen(PORT, 'localhost', function() {
+    console.log('Server listening on localhost:' + PORT);
+    console.log('Access from this device: http://localhost:' + PORT + '/index.html');
+    console.log('Access from other devices: http://<your-device-ip>:' + PORT + '/index.html');
 });
 
 const DoorState = {
@@ -55,94 +55,51 @@ const DoorState = {
     DISCONNECTED: 'DISCONNECTED'
 };
 
-function normalizeStatusJson(json) {
-    if (!json) return DoorState.DISCONNECTED;
-    if (typeof json.state !== 'undefined') {
-        switch (json.state) {
-            case 0: return DoorState.LOCKED;
-            case 1: return DoorState.UNLOCKED;
-            case 2: return DoorState.OPEN;
-            default: return DoorState.UNKNOWN;
-        }
-    }
-    if (typeof json.d0_open !== 'undefined' && typeof json.d0_locked !== 'undefined') {
-        if (json.d0_open) return DoorState.OPEN;
-        if (json.d0_locked) return DoorState.LOCKED;
-        return DoorState.UNLOCKED;
-    }
-    return DoorState.DISCONNECTED;
-}
-
-function formatModuleId(moduleId) {
-    if (moduleId === null || moduleId === undefined) return '';
-    const s = String(moduleId);
-    if (/^[Dd]\d+$/.test(s)) return s.toUpperCase();
-    if (/^\d+$/.test(s)) return `D${s}`;
-    return s;
-}
-
-async function getDoorInfo(moduleId) {
-    const mod = formatModuleId(moduleId);
-    try {
-        const res = await fetch(`http://localhost:9000/api/status?module=${encodeURIComponent(mod)}`);
-        if (!res.ok) return null;
-        const j = await res.json();
-        return {
-            state: normalizeStatusJson(j),
-            raw: j,
-            frontDoorOpen: !!j.front_door_open || !!j.d0_open,
-            frontLockLocked: !!j.front_lock_locked || !!j.d1_locked
-        };
-    } catch (e) {
-        console.error('Error fetching door info:', e);
-        return null;
-    }
-}
-
-async function sendCommand(moduleId, target, action) {
-    const mod = formatModuleId(moduleId);
-    const body = `module=${encodeURIComponent(mod)}&target=${encodeURIComponent(target||'')}&action=${encodeURIComponent(action)}`;
-    try {
-        const res = await fetch(`http://localhost:9000/api/command`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    } catch (e) {
-        console.error('Error sending command:', e);
-        throw e;
-    }
-}
+// Start UDP door bridge
+const doorServer = require('./lib/door_server');
+doorServer.listen(httpServer);
 
 io.on('connection', function(socket) {
     console.log('WebSocket client connected:', socket.id);
 
-    socket.on('get-door-info', async (moduleId, callback) => {
+    socket.on('get-door-info', (moduleId, callback) => {
         console.log('get-door-info for module:', moduleId);
-        const info = await getDoorInfo(moduleId);
-        if (callback) callback(info);
+        // Call the door_server directly via its exported function
+        doorServer.sendCommand(moduleId, 'D0', 'STATUS', {
+            emit: (eventType, data) => {
+                if (eventType === 'command-feedback') {
+                    if (callback) callback({ success: true, data });
+                } else if (eventType === 'command-error') {
+                    if (callback) callback({ success: false, error: data.error });
+                }
+            }
+        });
     });
 
-    socket.on('lock-door', async (moduleId, callback) => {
+    socket.on('lock-door', (moduleId, callback) => {
         console.log('lock-door for module:', moduleId);
-        try {
-            const result = await sendCommand(moduleId, 'D0', 'LOCK');
-            if (callback) callback({ success: true, data: result });
-        } catch (e) {
-            if (callback) callback({ success: false, error: e.message });
-        }
+        doorServer.sendCommand(moduleId, 'D0', 'LOCK', {
+            emit: (eventType, data) => {
+                if (eventType === 'command-feedback') {
+                    if (callback) callback({ success: true, data });
+                } else if (eventType === 'command-error') {
+                    if (callback) callback({ success: false, error: data.error });
+                }
+            }
+        });
     });
 
-    socket.on('unlock-door', async (moduleId, callback) => {
+    socket.on('unlock-door', (moduleId, callback) => {
         console.log('unlock-door for module:', moduleId);
-        try {
-            const result = await sendCommand(moduleId, 'D0', 'UNLOCK');
-            if (callback) callback({ success: true, data: result });
-        } catch (e) {
-            if (callback) callback({ success: false, error: e.message });
-        }
+        doorServer.sendCommand(moduleId, 'D0', 'UNLOCK', {
+            emit: (eventType, data) => {
+                if (eventType === 'command-feedback') {
+                    if (callback) callback({ success: true, data });
+                } else if (eventType === 'command-error') {
+                    if (callback) callback({ success: false, error: data.error });
+                }
+            }
+        });
     });
 
     socket.on('disconnect', function() {

@@ -282,6 +282,20 @@ static void handle_line(char *line, struct sockaddr_in *src)
             // notify any waiter(s)
             pthread_cond_broadcast(&g_feedback_cond);
         }
+    } else if (strcmp(type, "COMMAND") == 0) {
+        // COMMAND <CMDID> <TARGET> <ACTION> - forward to target module
+        // This is for web/external clients sending commands through the hub
+        strtok_r(NULL, " \t\r\n", &save); // skip cmdid (hub will assign new one)
+        char *target = strtok_r(NULL, " \t\r\n", &save);
+        char *action = strtok_r(NULL, " \t\r\n", &save);
+        
+        // mod is the target module (e.g., "D1"), so forward this command
+        if (target && action) {
+            pthread_mutex_unlock(&g_mutex);
+            // Call the hub's command forwarding function
+            hub_udp_send_command(mod, target, action);
+            pthread_mutex_lock(&g_mutex);
+        }
     } else {
         // HELLO or unknown, just history+timestamp
         door->last_event_ms = t;
