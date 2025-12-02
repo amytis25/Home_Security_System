@@ -10,6 +10,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define DOOR_CLOSED_THRESHOLD_CM 10
+#define STEPPER_LOCKED_POSITION 180
+#define STEPPER_UNLOCKED_POSITION 0
 /* Door state exposed to callers. Values are explicit for ABI stability. */
 typedef enum {
     LOCKED = 0,

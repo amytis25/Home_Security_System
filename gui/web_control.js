@@ -45,9 +45,13 @@ function setupServerMessageHandlers() {
         const moduleId = data.module;
         const action = (data.action || '').toUpperCase();
         
+        console.log(`Parsing feedback for ${moduleId}: "${action}"`);
+        
         if (moduleId && doorStates[moduleId]) {
             // Parse the action field for status (e.g., "LOCKED", "CLOSED,UNLOCKED")
-            const parts = action.split(/[,\s]+/).map(s => s?.trim().toUpperCase());
+            const parts = action.split(/[,\s]+/).map(s => s?.trim().toUpperCase()).filter(s => s);
+            console.log(`Parsed parts: [${parts.join(', ')}]`);
+            
             if (parts.includes('OPEN')) {
                 doorStates[moduleId].doorOpen = true;
             } else if (parts.includes('CLOSED')) {
@@ -58,7 +62,11 @@ function setupServerMessageHandlers() {
             } else if (parts.includes('UNLOCKED')) {
                 doorStates[moduleId].lockLocked = false;
             }
+            
+            console.log(`Updated doorStates[${moduleId}]:`, doorStates[moduleId]);
             updateUIForModule(moduleId);
+        } else {
+            console.warn(`No doorState found for module: ${moduleId}`);
         }
     });
 
@@ -85,17 +93,27 @@ function setupServerMessageHandlers() {
 
 // Update UI for a specific module based on cached state
 function updateUIForModule(moduleId) {
+    console.log(`updateUIForModule called for ${moduleId}`);
     const num = moduleId.replace('D', '');
     const span = document.getElementById(`door${num}_status`);
     const btn = document.getElementById(`toggle_door${num}`);
     const state = doorStates[moduleId];
 
-    if (!span || !btn || !state) return;
+    console.log(`  span: ${span ? 'found' : 'NOT found'}`);
+    console.log(`  btn: ${btn ? 'found' : 'NOT found'}`);
+    console.log(`  state:`, state);
+
+    if (!span || !btn || !state) {
+        console.warn(`Missing elements for door${num}. Span: ${!!span}, Btn: ${!!btn}, State: ${!!state}`);
+        return;
+    }
 
     // Display combined status: door state / lock state
     const doorStr = state.doorOpen ? 'open' : 'closed';
     const lockStr = state.lockLocked ? 'locked' : 'unlocked';
-    span.textContent = `${doorStr} / ${lockStr}`;
+    const statusText = `${doorStr} / ${lockStr}`;
+    console.log(`  Setting status to: "${statusText}"`);
+    span.textContent = statusText;
 
     // Update button state and label
     if (state.doorOpen) {
@@ -108,6 +126,7 @@ function updateUIForModule(moduleId) {
         btn.textContent = 'Lock Door';
         btn.disabled = false;
     }
+    console.log(`  Button set to: "${btn.textContent}" (disabled: ${btn.disabled})`);
 }
 
 // Send command to door module via WebSocket -> UDP
