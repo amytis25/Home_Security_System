@@ -23,7 +23,14 @@ const httpServer = http.createServer(function(req, res) {
             res.end('Error 404: resource not found.');
             return;
         }
-        res.writeHead(200, {'Content-Type': mime.getType(path.basename(absPath)) || 'application/octet-stream'});
+        const filename = path.basename(absPath);
+        let mimeType = 'application/octet-stream';
+        if (filename.endsWith('.html')) mimeType = 'text/html';
+        else if (filename.endsWith('.css')) mimeType = 'text/css';
+        else if (filename.endsWith('.js')) mimeType = 'application/javascript';
+        else if (filename.endsWith('.json')) mimeType = 'application/json';
+        
+        res.writeHead(200, {'Content-Type': mimeType});
         res.end(data);
     });
 });
@@ -33,8 +40,10 @@ const io = socketio(httpServer, {
     cors: { origin: "*" }
 });
 
-httpServer.listen(PORT, function() {
-    console.log('Server listening on port ' + PORT);
+httpServer.listen(PORT, '0.0.0.0', function() {
+    console.log('Server listening on 0.0.0.0:' + PORT);
+    console.log('Access from this device: http://localhost:' + PORT + '/UI.html');
+    console.log('Access from other devices: http://<your-device-ip>:' + PORT + '/UI.html');
 });
 
 const DoorState = {
