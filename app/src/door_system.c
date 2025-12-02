@@ -185,7 +185,6 @@ int main(int argc, char *argv[]){
     // Stop HTTP API
     http_api_stop();
 
-    return 0;
 
     // ----------------------- END OF EG Door Control Loop -----------------------
     
