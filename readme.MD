@@ -124,8 +124,11 @@ sudo apt update
 sudo apt install libcurl4-openssl-dev
 
 ###If error w/ CURL NOT FOUND when cross-compiling may need arm64
+
 sudo dpkg --add-architecture arm64
+
 sudo apt update
+
 sudo apt install libcurl4-openssl-dev:arm64
 
 
