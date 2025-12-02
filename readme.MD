@@ -123,6 +123,11 @@ We'll use it to send discord alerts from the host unit via HTTPs requests to a d
 sudo apt update
 sudo apt install libcurl4-openssl-dev
 
+###If error w/ CURL NOT FOUND when cross-compiling may need arm64
+sudo dpkg --add-architecture arm64
+sudo apt update
+sudo apt install libcurl4-openssl-dev:arm64
+
 
 ## UDP/NETCAT INFORMATION
 ### UDP ports used:
