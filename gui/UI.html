@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="./style.css" />
     <script src="/socket.io/socket.io.js"></script>
-    <title>Door Control</title>
+    <title>Door Control System</title>
 </head>
 <body>
     <div class="status">
         <div class="row">
             <h1>Door Control System</h1>
+            <p id="connection-status" class="connection-info">Connecting...</p>
             <table>
                 <tr>
                     <th>Door</th>
@@ -22,7 +23,7 @@
                         <td>Door D1</td>
                         <td><span id="door1_status">unknown</span></td>
                         <td>
-                            <button type="button" id="toggle_door1">Toggle</button>
+                            <button type="button" id="toggle_door1">--</button>
                             <div id="door1_message" class="msg"></div>
                         </td>
                     </tr>
@@ -30,7 +31,7 @@
                         <td>Door D2</td>
                         <td><span id="door2_status">unknown</span></td>
                         <td>
-                            <button type="button" id="toggle_door2">Toggle</button>
+                            <button type="button" id="toggle_door2">--</button>
                             <div id="door2_message" class="msg"></div>
                         </td>
                     </tr>
@@ -38,12 +39,13 @@
                         <td>Door D3</td>
                         <td><span id="door3_status">unknown</span></td>
                         <td>
-                            <button type="button" id="toggle_door3">Toggle</button>
+                            <button type="button" id="toggle_door3">--</button>
                             <div id="door3_message" class="msg"></div>
                         </td>
                     </tr>
                 </tbody>
             </table>
+            <div id="debug-info" class="debug"></div>
         </div>
     </div>
     <script src="./web_control.js"></script>
