@@ -10,46 +10,67 @@
 
 //#define DEBUG 
 
+//#define DEBUG 
+
 #define NANOSECONDS_IN_SECOND 1000000000
+
+/* Define the LEDt instances here (the header declares them `extern`).
+   This ensures a single definition is present for the whole program and
+   avoids multiple-definition linker errors when the header is included
+   from multiple compilation units. */
+const LEDt RED_LED = {
+    .duty_cycle = "/dev/hat/pwm/GPIO15/duty_cycle",
+    .period     = "/dev/hat/pwm/GPIO15/period",
+    .enable     = "/dev/hat/pwm/GPIO15/enable"
+};
+const LEDt GREEN_LED = {
+    .duty_cycle = "/dev/hat/pwm/GPIO12/duty_cycle",
+    .period     = "/dev/hat/pwm/GPIO12/period",
+    .enable     = "/dev/hat/pwm/GPIO12/enable"
+};
 
 // Helper function to write to a file
 bool PWM_export(void){
-    return PWM_export_pin(DEFAULT_PWM_PIN);
-}
-// Helper: build a sysfs path for a given pin and filename
-static void build_path(char *out, size_t outlen, const char *pin, const char *filename)
-{
-    if (out == NULL || pin == NULL || filename == NULL) return;
-    snprintf(out, outlen, PWM_SYSFS_PATH_FORMAT, pin, filename);
-}
+    // Ensure both GPIO15 and GPIO12 PWM sysfs entries exist. Try exporting any
+    // pin whose enable file is not present yet.
+    const char *pins[] = { "GPIO15", "GPIO12" };
+    const char *enable_paths[] = { RED_LED.enable, GREEN_LED.enable };
 
-bool PWM_export_pin(const char* pin){
-    if (pin == NULL) return false;
-    char enable_path[PATH_MAX];
-    build_path(enable_path, sizeof(enable_path), pin, PWM_ENABLE_FILENAME);
-    // If the PWM sysfs already exists, consider it exported.
-    if (access(enable_path, F_OK) == 0) return true;
+    bool all_ok = true;
+    for (size_t p = 0; p < sizeof(pins)/sizeof(pins[0]); ++p) {
+        const char *path = enable_paths[p];
+        if (access(path, F_OK) == 0) {
+            continue; // already exists
+        }
 
-    // Try to export the PWM using helper tool.
-    char cmd[128];
-    int n = snprintf(cmd, sizeof(cmd), "beagle-pwm-export --pin %s", pin);
-    if (n < 0 || (size_t)n >= sizeof(cmd)) {
-        fprintf(stderr, "PWM_export_pin: command buffer overflow\n");
-        return false;
-    }
-    int rc = system(cmd);
-    if (rc != 0) {
-        fprintf(stderr, "PWM_export_pin: beagle-pwm-export failed (rc=%d)\n", rc);
-        return false;
+        // attempt to export this pin
+        char cmd[128];
+        int n = snprintf(cmd, sizeof(cmd), "beagle-pwm-export --pin %s", pins[p]);
+        if (n < 0) {
+            fprintf(stderr, "PWM_export: snprintf failed\n");
+            all_ok = false;
+            continue;
+        }
+        int rc = system(cmd);
+        if (rc != 0) {
+            fprintf(stderr, "PWM_export: beagle-pwm-export failed for %s (rc=%d)\n", pins[p], rc);
+            all_ok = false;
+            continue;
+        }
+
+        // Wait briefly for sysfs entries to appear
+        bool found = false;
+        for (int i = 0; i < 20; ++i) {
+            if (access(path, F_OK) == 0) { found = true; break; }
+            usleep(100000); // 100 ms
+        }
+        if (!found) {
+            fprintf(stderr, "PWM_export: timeout waiting for %s\n", path);
+            all_ok = false;
+        }
     }
 
-    // Wait briefly for sysfs entries to appear
-    for (int i = 0; i < 20; ++i) {
-        if (access(enable_path, F_OK) == 0) return true;
-        usleep(100000); // 100 ms
-    }
-    fprintf(stderr, "PWM_export_pin: timeout waiting for %s\n", enable_path);
-    return false;
+    return all_ok;
 }
 static bool writeToFile(const char* filename, const char* value) {
     FILE* file = fopen(filename, "w");
@@ -70,16 +91,8 @@ static bool writeToFile(const char* filename, const char* value) {
     return true;
 }
 
-// Helper: write to a specific pin file
-static bool writeToPinFile(const char* pin, const char* filename, const char* value)
-{
-    char path[PATH_MAX];
-    build_path(path, sizeof(path), pin, filename);
-    return writeToFile(path, value);
-}
-
 // PWM helper Functions
-bool PWM_setDutyCycle(int dutyCycle){
+bool PWM_setDutyCycle(LEDt led, int dutyCycle){
     #ifdef DEBUG
     printf("Setting duty cycle to %d\n", dutyCycle);
     #endif
@@ -87,59 +100,35 @@ bool PWM_setDutyCycle(int dutyCycle){
     char buf[32];
     int n = snprintf(buf, sizeof(buf), "%d", dutyCycle);
     if (n < 0) return false;
-    return PWM_setDutyCycle_pin(DEFAULT_PWM_PIN, dutyCycle);
+    return writeToFile(led.duty_cycle, buf);
 }
 
-bool PWM_setDutyCycle_pin(const char* pin, int dutyCycle)
-{
-    #ifdef DEBUG
-    printf("Setting duty cycle on %s to %d\n", pin, dutyCycle);
-    #endif
-    char buf[32];
-    int n = snprintf(buf, sizeof(buf), "%d", dutyCycle);
-    if (n < 0) return false;
-    return writeToPinFile(pin, PWM_DUTY_FILENAME, buf);
-}
-
-bool PWM_setPeriod(int period){
+bool PWM_setPeriod(LEDt led, int period){
     #ifdef DEBUG
     printf("Setting period to %d\n", period);
     #endif
     char buf[32];
     int n = snprintf(buf, sizeof(buf), "%d", period);
     if (n < 0) return false;
-    return PWM_setPeriod_pin(DEFAULT_PWM_PIN, period);
-}
-
-bool PWM_setPeriod_pin(const char* pin, int period)
-{
-    #ifdef DEBUG
-    printf("Setting period on %s to %d\n", pin, period);
-    #endif
-    char buf[32];
-    int n = snprintf(buf, sizeof(buf), "%d", period);
-    if (n < 0) return false;
-    return writeToPinFile(pin, PWM_PERIOD_FILENAME, buf);
+    return writeToFile(led.period, buf);
 }
 
 
-bool PWM_setFrequency(int Hz, int dutyCyclePercent)
+bool PWM_setFrequency(LEDt led, int Hz, int dutyCyclePercent)
 {
     if (dutyCyclePercent < 0 || dutyCyclePercent > 100) {
         fprintf(stderr, "PWM_setFrequency: invalid duty cycle percentage\n");
         return false;
     }
 
-    /* from A2
     // Assignment spec: support 0 - 500 Hz
     if (Hz < 0)   Hz = 0;
     if (Hz > 500) Hz = 500;
 
     if (Hz == 0) {
         // 0 Hz -> LED off / stop PWM
-        return PWM_disable();
+        return PWM_disable(led);
     }
-    */
 
     // Use 64-bit to avoid any overflow/rounding surprises
     const unsigned long long NSEC = 1000000000ULL;
@@ -153,58 +142,25 @@ bool PWM_setFrequency(int Hz, int dutyCyclePercent)
     // 4) enable
     
     // disable
-    if (!PWM_disable_pin(DEFAULT_PWM_PIN)) return false;
+    if (!PWM_disable(led)) return false;
 
-    if (!PWM_setPeriod_pin(DEFAULT_PWM_PIN, (int)period_ull)) return false;
-    if (!PWM_setDutyCycle_pin(DEFAULT_PWM_PIN, (int)duty_ull)) return false;
-
-    PWM_enable_pin(DEFAULT_PWM_PIN);
+    // cast to int because helpers take int
+    if (!PWM_setPeriod(led, (int)period_ull)) return false;
+    if (!PWM_setDutyCycle(led, (int)duty_ull)) return false;
+    // now enable
+    PWM_enable(led);
     return true;
 }
-bool PWM_setFrequency_pin(const char* pin, int Hz, int dutyCyclePercent)
-{
-    if (dutyCyclePercent < 0 || dutyCyclePercent > 100) {
-        fprintf(stderr, "PWM_setFrequency_pin: invalid duty cycle percentage\n");
-        return false;
-    }
-
-    if (Hz < 0)   Hz = 0;
-    if (Hz > 500) Hz = 500;
-
-    if (Hz == 0) {
-        return PWM_disable_pin(pin);
-    }
-
-    const unsigned long long NSEC = 1000000000ULL;
-    unsigned long long period_ull = NSEC / (unsigned long long)Hz;
-    unsigned long long duty_ull   = (period_ull * (unsigned long long)dutyCyclePercent) / 100ULL;
-
-    if (!PWM_disable_pin(pin)) return false;
-    if (!PWM_setPeriod_pin(pin, (int)period_ull)) return false;
-    if (!PWM_setDutyCycle_pin(pin, (int)duty_ull)) return false;
-    PWM_enable_pin(pin);
-    return true;
-}
-bool PWM_enable(){
+bool PWM_enable(LEDt led){
     #ifdef DEBUG
     printf("Enabling PWM\n");
     #endif
-    return PWM_enable_pin(DEFAULT_PWM_PIN);
+    return writeToFile(led.enable, "1");
 }
 
-bool PWM_disable(){
+bool PWM_disable(LEDt led){
     #ifdef DEBUG
     printf("Disabling PWM\n");
     #endif
-    return PWM_disable_pin(DEFAULT_PWM_PIN);
-}
-
-bool PWM_enable_pin(const char* pin)
-{
-    return writeToPinFile(pin, PWM_ENABLE_FILENAME, "1");
-}
-
-bool PWM_disable_pin(const char* pin)
-{
-    return writeToPinFile(pin, PWM_ENABLE_FILENAME, "0");
+    return writeToFile(led.enable, "0");
 }
