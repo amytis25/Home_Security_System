@@ -41,5 +41,6 @@ void door_reporting_stop(void);
 Door_t lockDoor(Door_t *door);
 Door_t unlockDoor(Door_t *door);
 Door_t get_door_status(Door_t *door);
+void doorMod_cleanup(void);
 
 #endif /* APP_DOORMOD_H */

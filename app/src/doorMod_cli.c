@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
         door_reporting_stop();
     }
 
-    LED_worker_shutdown();
+    doorMod_cleanup();      
 
     printf("Exiting doorMod CLI\n");
     return 0;

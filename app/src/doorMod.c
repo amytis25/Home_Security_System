@@ -330,3 +330,15 @@ Door_t get_door_status (Door_t *door){
     return *door;
 
 }
+void doorMod_cleanup(void){
+    if (StepperMotor_GetPosition()!= 0){
+        // Unlock door on cleanup
+        StepperMotor_Rotate(180);
+    }
+    // Stop reporting
+    door_reporting_stop();
+
+    // Shutdown LED worker
+    LED_worker_shutdown();
+    // Additional cleanup as needed
+}
