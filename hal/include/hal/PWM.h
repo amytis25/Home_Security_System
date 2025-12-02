@@ -1,34 +1,36 @@
 // PWM.h
 // ENSC 351 Fall 2025
-// PWM control interface for GPIO15
+// PWM control interface 
 
 #ifndef PWM_H
 #define PWM_H
 #include <stdbool.h>
 
-// Sysfs layout format and defaults
-#define PWM_SYSFS_PATH_FORMAT "/dev/hat/pwm/%s/%s"
-#define PWM_DUTY_FILENAME "duty_cycle"
-#define PWM_PERIOD_FILENAME "period"
-#define PWM_ENABLE_FILENAME "enable"
-#define DEFAULT_PWM_PIN "GPIO15"
+// PWM files 
+typedef struct {
+    const char *duty_cycle;
+    const char *period;
+    const char *enable;
+} LEDt;
 
-// Pin-parameterized PWM helper Functions (preferred)
-bool PWM_export_pin(const char* pin); // Initialization - exports PWM pin on BY-AI
-// Set PWM as requested for a specific pin
-bool PWM_setDutyCycle_pin(const char* pin, int dutyCycle);
-bool PWM_setPeriod_pin(const char* pin, int period);
-bool PWM_setFrequency_pin(const char* pin, int Hz, int dutyCyclePercent);
-// Enable/disable PWM for a specific pin
-bool PWM_enable_pin(const char* pin);
-bool PWM_disable_pin(const char* pin);
+/* LEDt instances are defined in a single C file to avoid multiple-definition
+   linker errors. Declare them here as `extern` so users of the header can
+   reference the same objects. */
+extern const LEDt RED_LED;
+extern const LEDt GREEN_LED;
 
-// Backwards-compatible wrappers (operate on `GPIO15`)
-bool PWM_export(void);
-bool PWM_setDutyCycle(int dutyCycle);
-bool PWM_setPeriod(int period);
-bool PWM_setFrequency(int Hz, int dutyCyclePercent);
-bool PWM_enable(void);
-bool PWM_disable(void);
+#define PWM_DUTY_CYCLE_FILE "/dev/hat/pwm/GPIO15/duty_cycle"
+#define PWM_PERIOD_FILE "/dev/hat/pwm/GPIO15/period"
+#define PWM_ENABLE_FILE "/dev/hat/pwm/GPIO15/enable"
+
+// PWM helper Functions
+bool PWM_export(void); // Initialization - exports PWM pin on BY-AI
+// Set PWM as requested
+bool PWM_setDutyCycle(LEDt led, int dutyCycle);
+bool PWM_setPeriod(LEDt led, int period);
+bool PWM_setFrequency(LEDt led, int Hz, int dutyCyclePercent);
+// Enable/disable PWM
+bool PWM_enable(LEDt led);
+bool PWM_disable(LEDt led);
 
 #endif
