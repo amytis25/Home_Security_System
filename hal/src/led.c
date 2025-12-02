@@ -31,6 +31,8 @@
 // led.c
 // Implementations for LED control using PWM
 
+#define DEBUG 
+
 #include "hal/led.h"
 #include "hal/PWM.h"
 #include "hal/timing.h"
@@ -60,13 +62,16 @@ bool LED_init(void)
 {
 	bool ok = true;
 	if (!PWM_export()) {
-		fprintf(stderr, "LED_init: failed to export\n");
+		fprintf(stderr, "LED_init: PWM_export failed (continuing without hardware)\n");
 		ok = false;
 	}
 	
-	if (ok) {
-		/* Start the LED worker so callers can enqueue non-blocking LED tasks. */
-		LED_worker_init();
+	/* Start the LED worker regardless of PWM export status.
+	   The worker will still enqueue and execute LED sequences;
+	   if PWM hardware is unavailable, sequences execute with debug output. */
+	if (!LED_worker_init()) {
+		fprintf(stderr, "LED_init: Failed to start LED worker\n");
+		ok = false;
 	}
 
 	return ok;
@@ -116,6 +121,9 @@ void LED_blink_green_n(int flashes, int freqHz, int dutyPercent)
 // High-level sequences
 void LED_lock_success_sequence(void)
 {
+	#ifdef DEBUG
+	fprintf(stderr, "[LED] Lock SUCCESS: 2 red flashes @ 7Hz, then green steady\n");
+	#endif
 	// Ensure green is off before starting sequence
 	PWM_disable(GREEN_LED);
 	// 2 red flashes @ 7Hz then green on steady (lower duty)
@@ -125,6 +133,9 @@ void LED_lock_success_sequence(void)
 
 void LED_lock_failure_sequence(void)
 {
+	#ifdef DEBUG
+	fprintf(stderr, "[LED] Lock FAILURE: 5 red flashes @ 10Hz, then red @ 2Hz continuous\n");
+	#endif
 	// Ensure green is off
 	PWM_disable(GREEN_LED);
 	// 5 red flashes @ 10Hz, then red flash at 2Hz (continuous)
@@ -137,6 +148,9 @@ void LED_lock_failure_sequence(void)
 
 void LED_unlock_success_sequence(void)
 {
+	#ifdef DEBUG
+	fprintf(stderr, "[LED] Unlock SUCCESS: 2 red flashes @ 7Hz, then green steady\n");
+	#endif
 	// Ensure green is off before starting sequence
 	PWM_disable(GREEN_LED);
 	// 2 red flashes @ 7Hz then green on steady (lower duty)
@@ -146,6 +160,9 @@ void LED_unlock_success_sequence(void)
 
 void LED_unlock_failure_sequence(void)
 {
+	#ifdef DEBUG
+	fprintf(stderr, "[LED] Unlock FAILURE: 5 red flashes @ 10Hz, then red @ 2Hz continuous\n");
+	#endif
 	// Ensure green is off
 	PWM_disable(GREEN_LED);
 	// 5 red flashes @ 10Hz, then red flash at 2Hz (continuous)
