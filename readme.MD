@@ -1,9 +1,10 @@
 # Embedded Home Security System
+A distributed embedded Linux security system for multi-door monitoring and control, built on BeagleY-AI boards with real-time sensor integration and centralized command handling.
+
 ## Team 
 
 Amytis Saghafi (asa414@sfu.ca), Melissa Mosavi (mmosavi@sfu.ca), Richard Kim (rmk7@sfu.ca), Simon Schaufele (ses16@sfu.ca)
 
-A distributed embedded Linux security system for multi-door monitoring and control, built on BeagleY-AI boards with real-time sensor integration and centralized command handling.
 
 ## Overview
 
