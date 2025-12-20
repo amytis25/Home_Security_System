@@ -18,6 +18,34 @@ This project implements a complete home security solution consisting of:
 
 Each door module runs on a dedicated BeagleY-AI board and communicates with a central control unit, which coordinates operations and forwards updates to end users. The system implements a command-response protocol over UDP, ensuring reliable distributed operation.
 
+## Quick Start
+
+### Prerequisites
+- BeagleY-AI boards (1 hub + 3 door modules minimum)
+- HC-SR04 ultrasonic sensors (3)
+- NEMA stepper motors with drivers (3)
+- Status LEDs (6 total - 2 per door)
+- aarch64 cross-compilation toolchain
+- Node.js v14+ (for web server)
+
+### Hardware Setup
+1. Connect HC-SR04 sensor to door module GPIO pins (see [REFERENCE.md](./REFERENCE.md) for pinout)
+2. Wire stepper motor to motor driver board
+3. Connect status LEDs to PWM-capable GPIO pins
+4. Configure static IP addresses for all modules
+
+### Software Deployment
+```bash
+# Build for target
+./buildTarget.sh
+
+# Deploy to hub
+scp build/app/door_system root@192.168.8.108:~/
+
+# Deploy to door modules
+scp build/app/doorMod_cli root@<DOOR_IP>:~/
+```
+
 ## System Architecture
 
 ### Distributed Node Architecture
