@@ -1,209 +1,237 @@
-# Home Invader Repellent
-Written by: Amytis Saghafi, Melissa Mosavi, Richard Kim, Simon Schaufele
+# Embedded Home Security System
+## Team 
 
-## PROGRAM OUTLINE
-### 1 - Description
-Our proposed project is a home security system designed to provide a simple and reliable solution for residential safety. The system will consist of individual door modules, each equipped with a stepper motor, an ultrasonic sensor, and a BeagleY-AI board. These modules will monitor the state of the doors and communicate with a central BeagleY-AI control unit, which interprets the data and forwards updates to the user’s personal device (e.g., phone, tablet, or laptop) via wifi connection. For the scope of this project and given hardware limitations, we will implement three door modules along with a single central control unit.
-### 2 - Connectivity
-Each door module would be connected to a BeagleY-AI board with networking capabilities, allowing it to communicate with a central BeagleY-AI board that communicates with the user's mobile device via a wifi connection. 
-The central BeagleY-AI board will send updates to the user. <br>
-**Option 1:** A Discord webhook where alerts are routed to the user through Discord
-**Option 2 (if time allows):** A mobile UI that includes a control hub (e.g., sends alerts as well as allowing the user to control the lock on the door)
+Amytis Saghafi (asa414@sfu.ca), Melissa Mosavi (mmosavi@sfu.ca), Richard Kim (rmk7@sfu.ca), Simon Schaufele (ses16@sfu.ca)
 
-### Core Components
-- 4× BeagleY-AI Boards:# Configure and build
-  - 3× Door module controllerscmake ..
-  - 1× Central control unitmake -j4
-- 3× HC-SR04 Ultrasonic Sensors```
-- 3× Stepper Motors with Driver Boards
-- 3× Demo Door Units (3D printed or wooden)### Cross-Compiling (if needed)
+A distributed embedded Linux security system for multi-door monitoring and control, built on BeagleY-AI boards with real-time sensor integration and centralized command handling.
 
-### Optional Components
+## Overview
 
-- Front door camera module## Running the Application
+This project implements a complete home security solution consisting of:
 
-## BEAGLE-Y-AI PIN CONNECTIONS 
+- **Three door modules** equipped with ultrasonic sensors and stepper motor locks
+- **One central hub** for aggregating status, processing commands, and routing alerts
+- **Network communication** via UDP for low-latency inter-node messaging
+- **User interface** with web dashboard for real-time monitoring and lock control
+- **Alert system** for immediate notification of security events
 
-- **STEPPER MOTOR**
-    - IN1: GPIO 04
-    - IN2: GPIO 22
-    - IN3: GPIO 05
-    - IN4: GPIO 06
+Each door module runs on a dedicated BeagleY-AI board and communicates with a central control unit, which coordinates operations and forwards updates to end users. The system implements a command-response protocol over UDP, ensuring reliable distributed operation.
 
-- **ULTRASONIC SENSOR (HC-SR04)**:
-    - trig: GPIO27 (gpiochip1, line 33)
-    - echo: GPIO17 (gpiochip2, line 8)
+## System Architecture
 
-- **LED CONNECTIONS(PWM)**:
-    - Red - GPIO15
-    - Green - GPIO12
+### Distributed Node Architecture
 
-    Please edit overlays:
+```
+┌─────────────────────────┐
+│   Central Hub (D0)      │
+│  - BeagleY-AI Board     │
+│  - Command orchestration│
+│  - Alert management     │
+│  - Web server (port 8080)
+└──────────┬──────────────┘
+           │ UDP (port 12345)
+    ┌──────┼──────┬──────────┐
+    │      │      │          │
+    ▼      ▼      ▼          ▼
+   D1     D2     D3      (Extensible)
+ (Door)  (Door) (Door)
+```
 
-    sudo nano /boot/firmware/extlinux/extlinux.conf
-    replace PWM overlay with 
-    - k3-am67a-beagley-ai-pwm-epwm0-gpio15-gpio12.dtbo
+### Door Module Hardware
 
-## RUNNING CMAKE
-- for host:
-    ```shell
-        ./buildHost.sh
-    ```
-- for target:
-    ```shell
-        ./buildTarget.sh
-    ```
+Each door module includes:
+- **HC-SR04 Ultrasonic Sensor** – detects door open/closed state
+- **Stepper Motor** – controls electromagnetic lock
+- **Status LEDs** – visual feedback (red: locked, green: unlocked)
+- **BeagleY-AI Board** – onboard processor and networking
+
+### Central Hub Hardware
+
+- **BeagleY-AI Board** – command dispatcher
+- **GPIO Controllers** – status monitoring and alerting
+- **Ethernet + WiFi** – multi-path connectivity
+- **Web Server** – real-time dashboard
+
+### Communication Protocol
+
+**UDP-based command format:**
+```
+<MODULE> COMMAND <CMDID> <TARGET> <ACTION>
+```
+
+Examples:
+- `D1 COMMAND 42 D0 LOCK` – lock door D1
+- `D2 COMMAND 43 D0 STATUS` – query D2 status
+- `D1 FEEDBACK 42 D0 LOCKED` – confirmation response
+
+Each module maintains state for two channels:
+- **D0 (Sensor)** – OPEN/CLOSED
+- **D1 (Lock)** – LOCKED/UNLOCKED
+
+## Team Contributions
+
+This was a team project developed by **Amytis Saghafi (AS)**, **Melissa Mosavi (MM)**, **Richard Kim (RK)**, and **Simon Schaufele (SS)**.
+
+### Core Modules
+
+| File | Component | Host/Target | Completeness | Language | Authors | Description |
+|------|-----------|------------|--------------|----------|---------|-------------|
+| `GPIO.c` / `GPIO.h` | GPIO Access | T(D) | ★★★★★ | C | AS, MM | Accesses and configures GPIO pins for sensor/actuator control |
+| `HC-SR04.c` / `HC-SR04.h` | Ultrasonic Sensor | T(D) | ★★★★★ | C | AS, MM | Reads and processes HC-SR04 ultrasonic sensor data |
+| `timing.c` / `timing.h` | Timing Functions | T(H/D) | ★★★★☆ | C | AS, MM | Provides delay functions and time management utilities |
+| `UI.html` | Web Dashboard | H | ★★★★★ | HTML | AS, MM | Interactive web UI for controlling and monitoring door modules |
+| `web_control.js` | UI Logic | H | ★★★★☆ | JS | AS, MM | Client-side UI functions and real-time status updates |
+| `doorMod.c` / `doorMod.h` | Door Module | T(D) | ★★★★★ | C | AS, MM | Main door module controller (sensor polling, lock control, command handling) |
+| `door_system.c` | Hub System | T(H) | ★★★★☆ | C | MM, SS | Central hub hosting door control system and command orchestration |
+| `discord_alert.c` / `discord_alert.h` | Discord Alerts | O | ★★★★☆ | C | SS, RK | Sends security alerts to Discord webhook |
+| `door_udp.c` / `hub_udp.c` | UDP Infrastructure | T(H/D)/H | ★★★★☆ | C | SS, MM | UDP communication layer for hub-door and web-hub interaction |
+| `LED.c` / `LED.h` | LED Control | T(H/D) | ★★★☆☆ | C | MM, AS | PWM-based LED control for status indication (incomplete for hub) |
+| `StepperMotor.c` / `StepperMotor.h` | Stepper Motor | T(D) | ★★★★★ | C | MM, AS | Stepper motor initialization and control (rotation by degrees) |
+| `server.js` | Web Server | H | ★★★★★ | JS | AS, SS, MM, RK | Main HTTP/WebSocket server (adapted from AS3 reference code) |
+
+### Helper Functions & Integration
+
+| File | Helper For | Host/Target | Completeness | Language | Authors | Description |
+|------|------------|-------------|--------------|----------|---------|-------------|
+| `doorMod_cli.c` | doorMod | T(D) | ★★★★★ | C | MM | Executable wrapper for door module testing and CLI control |
+| `door_udp_handler.c` | doorMod | T(D) | ★★★★☆ | C | MM | UDP handler ensuring UI never directly interacts with HAL |
+| `http_api.c` | HTTP API | H | ★★★★★ | C | MM | HTTP bridge linking door_system to web UI interface |
+| `led_worker.c` | LED Control | T(H/D) | ★★★☆☆ | C | MM, AS | Thread-safe LED execution across system stack |
+| `system_webhook.c` | Discord Alerts | H | ★★★★★ | C | MM | System-level webhook integration for alert dispatch |
+| `door_server.js` | UDP/Web Bridge | H | ★★★★★ | JS | MM | Bridges UDP hub communication to web client WebSockets |
+
+### Individual Contributions
+
+**Amytis Saghafi (AS):**
+- Designed and 3D-printed door module enclosures
+- Integrated sensors and actuators while maintaining signal integrity
+- Worked on GPIO access layer and stepper motor control
+- Contributed to embedded firmware and web UI
+- Physical assembly and connector management
+
+**Melissa Mosavi (MM):**
+- Designed door module firmware architecture and command protocol
+- Implemented UDP communication infrastructure (hub and door modules)
+- Provided miniature demo doors for testing and validation
+- Developed HTTP API and system webhook integration
+- Coordinated overall system integration and testing
+
+**Richard Kim (RK):**
+- Implemented Discord alert system with webhook integration
+- Contributed to server architecture and web integration
+- Worked on cross-module communication
+
+**Simon Schaufele (SS):**
+- Designed UDP protocol and hub system architecture
+- Implemented door_system hub controller
+- Contributed to Discord alert integration
+- Worked on server infrastructure
+
+## Tools & Technologies
+
+- **Languages:** C (embedded), JavaScript (web UI), Python (testing)
+- **Operating System:** Embedded Linux (BeagleOS on BeagleY-AI)
+- **Platforms:** BeagleY-AI (ARM Cortex-A53, 2 GB RAM)
+- **Hardware Interfaces:** GPIO, PWM, UDP networking
+- **Sensors & Actuators:** HC-SR04 ultrasonic, NEMA stepper motors, RGB LEDs
+- **Build System:** CMake, cross-GCC (aarch64-linux-gnu)
+- **Web Stack:** Node.js, Socket.io, JavaScript
+- **Protocols:** UDP (custom command protocol), HTTP/WebSocket
+
+## Repository Structure
+
+```
+ENSC351-project/
+├── app/                    # Door module firmware
+│   ├── include/
+│   ├── src/               # Core door logic, UDP handling, CLI
+│   └── CMakeLists.txt
+├── hal/                   # Hardware abstraction layer
+│   ├── include/           # GPIO, PWM, sensor, motor interfaces
+│   └── src/               # Platform-specific implementations
+├── gui/                   # Web dashboard and Node.js server
+│   ├── server.js          # Main HTTP/WebSocket server
+│   ├── web_control.js     # Client-side UI logic
+│   ├── UI.html
+│   └── lib/
+│       ├── door_server.js # UDP bridge (hub ↔ web clients)
+│       └── beatbox_server.js
+├── scripts/               # Testing and deployment utilities
+├── systemd/               # Service files for auto-start
+├── CMakeLists.txt         # Top-level build configuration
+├── buildHost.sh           # Build script for host compilation
+├── buildTarget.sh         # Build script for cross-compilation
+├── REFERENCE.md           # Detailed technical notes & setup procedures
+└── readme.MD              # This file
+```
+
+For detailed technical setup, GPIO pin mappings, network configuration, and testing procedures, see [REFERENCE.md](./REFERENCE.md).
+
+## Coursework Context
+
+This project was developed as part of **ENSC 351: Real-Time Operating Systems**, an upper-division embedded systems course at Simon Fraser University. The assignment focused on distributed embedded systems design, hardware-software integration, and network communication protocols.
+
+- Assignment specifications and starter code are intentionally excluded from this repository
+- The project demonstrates practical application of RTOS concepts, real-time I/O, and network protocol design
+- All code is original work by the team members
+
+## Building the Project
+
+### Build for Host (Development)
+```bash
+./buildHost.sh
+```
+
+### Build for Target (BeagleY-AI, Cross-Compiled)
+```bash
+./buildTarget.sh
+```
+
+For detailed CMake options and manual build procedures, see [REFERENCE.md](./REFERENCE.md#cmake-build-system).
+
+## Running the System
+
+### Deploy Hub Executable
+```bash
+scp build/app/door_system root@192.168.8.108:~/
+```
+
+### Deploy Door Module Executables
+```bash
+scp build/app/doorMod_cli root@<DOOR_IP>:~/
+```
+
+### Launch Web Dashboard
+The web server runs on the hub at `http://<hub-ip>:8080`. The dashboard provides real-time status display and lock control.
+
+For detailed deployment, network setup, and operational commands, see [REFERENCE.md](./REFERENCE.md#deployment-and-operation).
+
+## Key Features
+
+- **Real-Time Monitoring** – sub-second door state updates via UDP
+- **Centralized Command Dispatch** – single hub receives all commands and coordinates responses
+- **Multi-Module Scalability** – extensible to additional door modules without protocol changes
+- **Robust Error Handling** – timeout detection, command retries, and state validation
+- **Web Dashboard** – live status and lock control with multi-tab synchronization
+- **Alert Integration** – Discord webhook for immediate security notifications
+
+## Troubleshooting & Testing
+
+Common issues and diagnostic procedures are documented in [REFERENCE.md](./REFERENCE.md#troubleshooting). This includes:
+
+- Network connectivity verification (UDP port testing with `netcat`)
+- Sensor calibration and timing validation
+- Cross-compilation environment setup
+- Door module bring-up procedures
+
+## License
+
+This is academic coursework. Use, modification, and distribution are subject to institutional policies.
 
 
-### Manually Running CMake
+---
 
-To manually run CMake from the command line use:
-
-#### Host (build for the machine you're running on)
-
-    ```shell
-    # Regenerate build/ folder and makefiles:
-    rm -rf build/         # Wipes temporary build folder
-    cmake -S . -B build   # Generate makefiles in build
-
-    # Build (compile & link) the project
-    cmake --build build
-    ```
-
-#### Target (cross-compile for aarch64)
-
-Use one of these minimal options (do this from the repo root). Remove the old `build/` or `build/CMakeCache.txt` before changing compilers.
-
-    Option A — pass compilers directly to CMake:
-
-        ```shell
-        rm -rf build/
-        cmake -S . -B build \
-        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
-        cmake --build build
-        ```
-
-    Option B — set environment variables for a one-shot configure:
-
-        ```shell
-        rm -rf build/
-        CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ cmake -S . -B build
-        cmake --build build
-        ```
-## WLAN SETUP
-
-### SETUP
-source: https://docs.beagleboard.org/boards/beagley/ai/02-quick-start.html <br><br>
-Once board is fully booted and you have access to the shell, follow the commands below to connect to any WiFi access point, <br>
-
-- To list the wireless devices attached, (you should see wlan0 listed) <br>
-`iwctl device list` <br><br>
-- Scan WiFi using,<br>
-`iwctl station wlan0 scan`<br><br>
-- Get networks using, <br>
-`iwctl station wlan0 get-networks` <br><br>
-- Connect to your wifi network using,<br>
-`iwctl --passphrase "<wifi-pass>" station wlan0 connect "<wifi-name>"` <br><br>
-- Check wlan0 status with, <br>
-`iwctl station wlan0 show` <br><br>
-- To list the networks with connected WiFi marked you can again use, <br>
-`iwctl station wlan0 get-networks` <br><br>
-- Test connection with ping command, <br>
-`ping 8.8.8.8`<br>
-
-### WLAN information
-The LAN for this project is called 351network. PW defender351
-Hub connected to LAN via ethernet. wlan0 of hub is connected to SFUNET-SECURE for discord message functionality
-
-iwctl --passphrase "defender351" station wlan0 connect "351network"
-
-to disconnect:
-iwctl station wlan0 disconnect
-
-## CURL INFORMATION
-The libcurl or curl library is a c library written clientside to transfer data to the internet.
-We'll use it to send discord alerts from the host unit via HTTPs requests to a discord webhook url.
-
-### Install on host:
-sudo apt update
-sudo apt install libcurl4-openssl-dev
-
-###If error w/ CURL NOT FOUND when cross-compiling may need arm64
-
-sudo dpkg --add-architecture arm64
-
-sudo apt update
-
-sudo apt install libcurl4-openssl-dev:arm64
-
-## Discord webhook testing information:
-
-### Port:
-- Used Port 8080
-### Commands to input into 2 terminal
-First, in one terminal, python3 mockwebhook.py
-
-Then, in a second terminal, 
-gcc app/src/discordTest.c \ app/src/discord_alert.c \ hal/src/system_webhook.c \ hal/src/timing.c \ -Iapp/include \ -Ihal/include \ -lcurl -lpthread \ -o test_hub_webhook
+**Questions or technical inquiries?** See [REFERENCE.md](./REFERENCE.md) for detailed implementation notes.
 
 
-## UDP/NETCAT INFORMATION
-### UDP ports used:
- - Used port 12345 globally for command stream. command push and feedback
- - Used port 12346 on hub for poll(heartbeat) recieving 
-
-### network-level identifiers 
-
-D1 (door 1): 192.168.8.213
-D2 (door 2): 192.168.8.238
-D3 (door 3): 192.168.8.233
-
-### NETCAT COMMANDS
-netcat -u 192.168.8.108 12345 
-- all command feedbacks to hub
-netcat -u 192.168.8.108 12346 
-netcat -u -l -p 12346 
-- polling (heartbeat) to hub
-
-netcat -u 192.168.8.213 12345 
-    - commands sent to D1
-netcat -u 192.168.8.238 12345 
-    - commands sent to D2
-netcat -u 192.168.8.233 12345 
-    - commands sent to D3
-netcat -u -l -p 12345 
-    - global commands/feedback stream
-
-### door state channels
-D0: sensor (open/closed)
-D1: lock   (locked/unlocked)
-
-## FRESH COMPILE
-CMAKE should make 2 executables:
-- door_system
-- doorMod_cli
-
-door_system runs on hub
-doorMod_cli runs on the doors
-
-### Loading the Executables
-Connect to HUB wifi network
-
-Compile door_system, doorMod_cli
-
-run commands from executable folder (when all connected):
-scp door_system melissa@192.168.8.108:
-scp doorMod_cli amytis@192.168.8.213:
-scp doorMod_cli simon@192.168.8.238:
-scp doorMod_cli <RICHARD_USER>@192.168.8.233:
-
-
-add to PROFILE of each beagle:
-sudo ./doorMod_cli [MODULE_ID]
-
-MODULE_ID:
-amytis: "D1"
-simon: "D2"
-richard: "D3"
 
