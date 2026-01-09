@@ -1,5 +1,5 @@
 # Embedded Home Security System
-A distributed embedded Linux security system for multi-door monitoring and control, built on BeagleY-AI boards with real-time sensor integration and centralized command handling.
+A distributed embedded Linux security system for multi-door monitoring and control, built on BeagleY-AI boards with real-time sensor integration and centralized command handling.<br>
 *Developed as part of an upper-division Embedded and Real-Time System Software course (ENSC 351) at Simon Fraser University.*
 
 
