@@ -259,9 +259,6 @@ Common issues and diagnostic procedures are documented in [REFERENCE.md](./REFER
 - Cross-compilation environment setup
 - Door module bring-up procedures
 
-## License
-
-This is academic coursework. Use, modification, and distribution are subject to institutional policies.
 
 
 ---
