@@ -100,6 +100,8 @@ Each module maintains state for two channels:
 ## Team Contributions
 
 This was a team project developed by **Amytis Saghafi (AS)**, **Melissa Mosavi (MM)**, **Richard Kim (RK)**, and **Simon Schaufele (SS)**.
+**Note on authorship:**  
+File authorship reflects both code ownership and significant technical support.
 
 ### Core Modules
 
@@ -107,7 +109,7 @@ This was a team project developed by **Amytis Saghafi (AS)**, **Melissa Mosavi (
 |------|-----------|------------|--------------|----------|---------|-------------|
 | `GPIO.c` / `GPIO.h` | GPIO Access | T(D) | ★★★★★ | C | AS, MM | Accesses and configures GPIO pins for sensor/actuator control |
 | `HC-SR04.c` / `HC-SR04.h` | Ultrasonic Sensor | T(D) | ★★★★★ | C | AS, MM | Reads and processes HC-SR04 ultrasonic sensor data |
-| `timing.c` / `timing.h` | Timing Functions | T(H/D) | ★★★★☆ | C | AS, MM | Provides delay functions and time management utilities |
+| `timing.c` / `timing.h` | Timing Functions | T(H/D) | ★★★★★ | C | AS, MM | Provides delay functions and time management utilities |
 | `UI.html` | Web Dashboard | H | ★★★★★ | HTML | AS, MM | Interactive web UI for controlling and monitoring door modules |
 | `web_control.js` | UI Logic | H | ★★★★☆ | JS | AS, MM | Client-side UI functions and real-time status updates |
 | `doorMod.c` / `doorMod.h` | Door Module | T(D) | ★★★★★ | C | AS, MM | Main door module controller (sensor polling, lock control, command handling) |
@@ -132,11 +134,13 @@ This was a team project developed by **Amytis Saghafi (AS)**, **Melissa Mosavi (
 ### Individual Contributions
 
 **Amytis Saghafi (AS):**
-- Designed and 3D-printed door module enclosures
-- Integrated sensors and actuators while maintaining signal integrity
-- Worked on GPIO access layer and stepper motor control
-- Contributed to embedded firmware and web UI
-- Physical assembly and connector management
+- Implemented all low-level sensor and actuator access code in C, including direct GPIO interaction and hardware control logic based on official documentation
+- Owned and validated hardware-facing firmware, ensuring correct peripheral communication and real-time system behaviour prior to higher-level integration
+- Designed and implemented the system’s frontend UI, including layout, interaction design, and user-facing functionality
+- Contributed to system-level debugging and integration by reasoning across hardware, firmware, and software components
+- Initiated and structured project documentation, authoring core sections on system architecture, functionality, and personally developed components
+- Coordinated documentation contributions from teammates and integrated subsystem descriptions outside personal scope
+- Designed and 3D-printed the physical enclosure, guiding component placement and supporting system assembly
 
 **Melissa Mosavi (MM):**
 - Designed door module firmware architecture and command protocol
