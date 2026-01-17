@@ -140,7 +140,7 @@ File authorship reflects both code ownership and significant technical support.
 - Owned and validated hardware-facing firmware, ensuring correct peripheral communication and real-time system behaviour prior to higher-level integration
 - Designed and implemented the system’s frontend UI, including layout, interaction design, and user-facing functionality
 - Contributed to system-level debugging and integration by reasoning across hardware, firmware, and software components
-- Initiated and structured project documentation, authoring core sections on system architecture, functionality, and personally developed components
+- Initiated and structured project documentation
 - Coordinated documentation contributions from teammates and integrated subsystem descriptions outside personal scope
 - Designed and 3D-printed the physical enclosure, guiding component placement and supporting system assembly
 
